@@ -2,778 +2,1025 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Donkey Kong</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: #1a1a2e;
+      background: #000;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
       font-family: 'Courier New', monospace;
+      overflow: hidden;
     }
-    #hud {
-      color: #fff;
-      font-size: 18px;
-      margin-bottom: 8px;
-      display: flex;
-      gap: 40px;
-      letter-spacing: 2px;
+    #wrapper {
+      position: relative;
+      display: inline-block;
     }
-    #hud span { color: #FFD700; }
     canvas {
-      border: 3px solid #FFD700;
-      background: #0d0d1a;
       display: block;
+      image-rendering: pixelated;
     }
-    #message {
-      color: #FFD700;
-      font-size: 28px;
+    /* CRT scanline overlay */
+    #wrapper::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0.18) 4px
+      );
+      pointer-events: none;
+      z-index: 10;
+    }
+    /* Touch controls */
+    #touch-controls {
+      display: none;
       margin-top: 12px;
-      letter-spacing: 3px;
-      min-height: 36px;
-      text-align: center;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+      -webkit-user-select: none;
     }
-    #controls {
-      color: #888;
-      font-size: 13px;
-      margin-top: 8px;
-      letter-spacing: 1px;
+    @media (pointer: coarse) {
+      #touch-controls { display: flex; }
     }
+    .dpad { display: grid; grid-template-columns: repeat(3,52px); grid-template-rows: repeat(2,52px); gap: 4px; }
+    .btn {
+      width: 52px; height: 52px;
+      background: rgba(255,215,0,0.18);
+      border: 2px solid rgba(255,215,0,0.5);
+      border-radius: 10px;
+      color: #FFD700;
+      font-size: 22px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+    }
+    .btn:active { background: rgba(255,215,0,0.38); }
+    #btn-jump {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: rgba(255,69,0,0.22);
+      border: 2px solid rgba(255,69,0,0.6);
+      color: #FF4500;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 0;
+      margin-left: 16px;
+    }
+    #btn-jump:active { background: rgba(255,69,0,0.45); }
   </style>
 </head>
 <body>
-  <div id="hud">
-    SCORE: <span id="score">0</span>
-    &nbsp;&nbsp;&nbsp;
-    LIVES: <span id="lives">3</span>
-    &nbsp;&nbsp;&nbsp;
-    LEVEL: <span id="level">1</span>
+<div id="wrapper">
+  <canvas id="gameCanvas" width="560" height="560"></canvas>
+</div>
+<div id="touch-controls">
+  <div class="dpad">
+    <div></div>
+    <div class="btn" id="btn-up">▲</div>
+    <div></div>
+    <div class="btn" id="btn-left">◀</div>
+    <div class="btn" id="btn-down">▼</div>
+    <div class="btn" id="btn-right">▶</div>
   </div>
-  <canvas id="gameCanvas" width="560" height="520"></canvas>
-  <div id="message">PRESS ENTER TO START</div>
-  <div id="controls">Arrow Keys / WASD: Move &amp; Jump &nbsp;|&nbsp; ENTER: Start/Restart</div>
+  <div class="btn" id="btn-jump">JUMP</div>
+</div>
 
-  <script>
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width;
-  const H = canvas.height;
+<script>
+'use strict';
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const HUD_H = 48; // reserved at top for HUD
+const GAME_H = H - HUD_H; // playfield height
 
-  // ── Colour palette ──────────────────────────────────────────────
-  const C = {
-    platform:  '#8B4513',
-    platTop:   '#CD853F',
-    ladder:    '#DAA520',
-    ladderRung:'#FFD700',
-    mario:     '#FF4500',
-    marioPants:'#1E90FF',
-    marioCap:  '#FF0000',
-    marioSkin: '#FFDAB9',
-    dk:        '#8B4513',
-    dkFur:     '#D2691E',
-    barrel:    '#8B4513',
-    barrelBand:'#FFD700',
-    princess:  '#FF69B4',
-    heart:     '#FF1493',
-    hammer:    '#888',
-    sparks:    '#FF6600',
-  };
+// ─── Audio ───────────────────────────────────────────────────────────────────
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let ac = null;
+function ensureAudio() { if (!ac) ac = new AudioCtx(); }
+function beep(freq, dur, type='square', vol=0.12, delay=0) {
+  if (!ac) return;
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = type;
+  o.frequency.setValueAtTime(freq, ac.currentTime + delay);
+  g.gain.setValueAtTime(vol, ac.currentTime + delay);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + delay + dur);
+  o.start(ac.currentTime + delay);
+  o.stop(ac.currentTime + delay + dur + 0.02);
+}
+function sfxJump()   { ensureAudio(); beep(320,0.04); beep(480,0.06,undefined,undefined,0.04); beep(640,0.08,undefined,undefined,0.10); }
+function sfxDeath()  { ensureAudio(); [400,300,200,150,100].forEach((f,i)=>beep(f,0.09,'sawtooth',0.15,i*0.07)); }
+function sfxBarrel() { ensureAudio(); beep(120,0.05,'sawtooth',0.08); beep(90,0.08,'sawtooth',0.06,0.05); }
+function sfxWin()    { ensureAudio(); [523,659,784,1047].forEach((f,i)=>beep(f,0.12,undefined,0.12,i*0.13)); }
+function sfxHop()    { ensureAudio(); beep(200,0.04,'sawtooth',0.06); beep(280,0.05,undefined,0.05,0.04); }
 
-  // ── Game state ───────────────────────────────────────────────────
-  let state = 'title'; // title | playing | dead | win | gameover
-  let score = 0;
-  let lives = 3;
-  let level = 1;
-  let frameCount = 0;
+// ─── Colour palette ──────────────────────────────────────────────────────────
+const C = {
+  platform:   '#6B3410', platTop: '#C87941', platShad: '#3a1a08',
+  ladder:     '#B8860B', ladderRung: '#FFD700',
+  mario:      '#E03000', marioPants: '#1565C0', marioCap: '#CC0000', marioSkin: '#FFCCAA',
+  dk:         '#7B3A10', dkFur: '#C45F1A', dkBelly: '#D2956A',
+  barrel:     '#7B3010', barrelBand: '#FFD700',
+  princess:   '#FF69B4', heart: '#FF1040',
+  hudBg:      '#0a0a1e', hudBorder: '#FFD700',
+};
 
-  // ── Platform layout ──────────────────────────────────────────────
-  // Each platform: { x, y, w, slant } — slant tilts the surface
-  function buildLevel(lvl) {
-    const tilt = lvl === 1 ? 0.045 : lvl === 2 ? 0.06 : 0.07;
-    return [
-      // Ground
-      { x: 0,   y: 490, w: W,   slant: 0 },
-      // Floor 1
-      { x: 20,  y: 400, w: W-40, slant: tilt },
-      // Floor 2
-      { x: 20,  y: 310, w: W-40, slant: -tilt },
-      // Floor 3
-      { x: 20,  y: 220, w: W-40, slant: tilt },
-      // Floor 4 (DK level)
-      { x: 20,  y: 130, w: W-40, slant: 0 },
-    ];
-  }
+// ─── State ───────────────────────────────────────────────────────────────────
+let state = 'title'; // title | playing | dead | win | gameover
+let score = 0, lives = 3, level = 1, frameCount = 0;
+let hiScore = parseInt(localStorage.getItem('dk_hi') || '0');
 
-  // Ladders: { x, yTop, yBot }
-  function buildLadders() {
-    return [
-      { x: 80,  yTop: 400, yBot: 490 },
-      { x: 400, yTop: 400, yBot: 490 },
-      { x: 200, yTop: 310, yBot: 400 },
-      { x: 450, yTop: 310, yBot: 400 },
-      { x: 100, yTop: 220, yBot: 310 },
-      { x: 380, yTop: 220, yBot: 310 },
-      { x: 250, yTop: 130, yBot: 220 },
-    ];
-  }
+// ─── Screen shake ────────────────────────────────────────────────────────────
+let shakeAmt = 0, shakeX = 0, shakeY = 0;
+function triggerShake(amount) { shakeAmt = Math.max(shakeAmt, amount); }
+function updateShake() {
+  if (shakeAmt > 0) {
+    shakeX = (Math.random()-0.5)*shakeAmt*2;
+    shakeY = (Math.random()-0.5)*shakeAmt*2;
+    shakeAmt = Math.max(0, shakeAmt - 1.2);
+  } else { shakeX = 0; shakeY = 0; }
+}
 
-  let platforms = buildLevel(level);
-  let ladders   = buildLadders();
-
-  // ── Helper: get platform surface Y at given x ────────────────────
-  function platY(plat, x) {
-    const cx = plat.x + plat.w / 2;
-    return plat.y + (x - cx) * plat.slant;
-  }
-
-  function getPlatformBelow(px, py, pw) {
-    // Find the highest platform whose surface is just below py
-    let best = null;
-    let bestY = Infinity;
-    for (const p of platforms) {
-      if (px + pw < p.x || px > p.x + p.w) continue;
-      const sy = platY(p, px + pw / 2);
-      if (sy >= py - 2 && sy < bestY) {
-        best = p;
-        bestY = sy;
-      }
-    }
-    return best ? { plat: best, sy: bestY } : null;
-  }
-
-  // ── Mario ────────────────────────────────────────────────────────
-  const MARIO_W = 20, MARIO_H = 24;
-  let mario = {};
-
-  function resetMario() {
-    mario = {
-      x: 40, y: 460,
-      vx: 0, vy: 0,
-      onGround: false,
-      onLadder: false,
-      facingRight: true,
-      animFrame: 0,
-      animTimer: 0,
-      dead: false,
-      deathTimer: 0,
-    };
-  }
-
-  // ── Donkey Kong ──────────────────────────────────────────────────
-  let dk = { x: 60, y: 88, animTimer: 0, shakeTimer: 0 };
-
-  // ── Princess ─────────────────────────────────────────────────────
-  let princess = { x: W - 60, y: 100 };
-
-  // ── Barrels ──────────────────────────────────────────────────────
-  let barrels = [];
-  let barrelTimer = 0;
-  const BARREL_INTERVAL_BASE = 160; // frames between spawns
-
-  function spawnBarrel() {
-    barrels.push({
-      x: dk.x + 40,
-      y: dk.y + 20,
-      vx: 1.8 + level * 0.3,
-      vy: 0,
-      onGround: false,
-      rolling: true,
-      animTimer: 0,
-      animFrame: 0,
+// ─── Particles ───────────────────────────────────────────────────────────────
+let particles = [];
+function spawnParticles(x, y, count, colors, spd=3, life=35) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = (0.4 + Math.random() * 0.6) * spd;
+    particles.push({
+      x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s - 1,
+      color: colors[Math.floor(Math.random()*colors.length)],
+      life, maxLife: life, r: 2 + Math.random()*3
     });
   }
+}
+function updateParticles() {
+  for (let i = particles.length-1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.18;
+    p.life--;
+    if (p.life <= 0) particles.splice(i,1);
+  }
+}
+function drawParticles() {
+  for (const p of particles) {
+    const alpha = p.life / p.maxLife;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
 
-  // ── Input ────────────────────────────────────────────────────────
-  const keys = {};
-  window.addEventListener('keydown', e => {
-    keys[e.code] = true;
-    if (e.code === 'Enter') handleEnter();
-    // prevent page scroll
-    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) {
-      e.preventDefault();
-    }
+// ─── Floating score texts ─────────────────────────────────────────────────────
+let floats = [];
+function spawnFloat(x, y, text, color='#FFD700') {
+  floats.push({ x, y, vy: -1.2, text, color, life: 55, maxLife: 55 });
+}
+function updateFloats() {
+  for (let i = floats.length-1; i >= 0; i--) {
+    const f = floats[i]; f.y += f.vy; f.life--;
+    if (f.life <= 0) floats.splice(i,1);
+  }
+}
+function drawFloats() {
+  for (const f of floats) {
+    const alpha = f.life / f.maxLife;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = f.color;
+    ctx.font = 'bold 14px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+}
+
+// ─── Platform layout ─────────────────────────────────────────────────────────
+function buildLevel(lvl) {
+  const tilt = lvl === 1 ? 0.045 : lvl === 2 ? 0.065 : 0.08;
+  const top = HUD_H;
+  return [
+    { x: 0,   y: top+492, w: W,    slant: 0    }, // ground
+    { x: 20,  y: top+402, w: W-40, slant:  tilt },
+    { x: 20,  y: top+312, w: W-40, slant: -tilt },
+    { x: 20,  y: top+222, w: W-40, slant:  tilt },
+    { x: 20,  y: top+132, w: W-40, slant: 0    }, // DK floor
+  ];
+}
+function buildLadders() {
+  const top = HUD_H;
+  return [
+    { x: 80,  yTop: top+402, yBot: top+492 },
+    { x: 400, yTop: top+402, yBot: top+492 },
+    { x: 200, yTop: top+312, yBot: top+402 },
+    { x: 450, yTop: top+312, yBot: top+402 },
+    { x: 100, yTop: top+222, yBot: top+312 },
+    { x: 380, yTop: top+222, yBot: top+312 },
+    { x: 250, yTop: top+132, yBot: top+222 },
+  ];
+}
+
+let platforms = buildLevel(level);
+let ladders   = buildLadders();
+
+function platY(p, x) {
+  return p.y + (x - (p.x + p.w/2)) * p.slant;
+}
+function getPlatformBelow(px, py, pw) {
+  let best = null, bestY = Infinity;
+  for (const p of platforms) {
+    if (px + pw < p.x || px > p.x + p.w) continue;
+    const sy = platY(p, px + pw/2);
+    if (sy >= py - 2 && sy < bestY) { best = p; bestY = sy; }
+  }
+  return best ? { plat: best, sy: bestY } : null;
+}
+
+// ─── Mario ───────────────────────────────────────────────────────────────────
+const MW = 20, MH = 26;
+let mario = {};
+function resetMario() {
+  mario = {
+    x: 40, y: HUD_H + 458,
+    vx: 0, vy: 0,
+    onGround: false, onLadder: false,
+    facingRight: true,
+    animFrame: 0, animTimer: 0,
+    dead: false, deathTimer: 0,
+    jumpedBarrels: new Set(),
+  };
+}
+
+// ─── Donkey Kong ─────────────────────────────────────────────────────────────
+let dk = {};
+function resetDK() {
+  dk = { x: 55, y: HUD_H + 88, animTimer: 0, shakeTimer: 0 };
+}
+
+// ─── Princess ────────────────────────────────────────────────────────────────
+let princess = { x: W - 60, y: HUD_H + 98 };
+
+// ─── Barrels ─────────────────────────────────────────────────────────────────
+let barrels = [];
+let barrelTimer = 0;
+const BARREL_BASE = 160;
+
+function spawnBarrel() {
+  barrels.push({
+    x: dk.x + 44, y: dk.y + 22,
+    vx: 1.7 + level * 0.35,
+    vy: 0, onGround: false,
+    animTimer: 0, animFrame: 0,
+    scored: false,
   });
-  window.addEventListener('keyup', e => { keys[e.code] = false; });
+  sfxBarrel();
+}
 
-  function handleEnter() {
-    if (state === 'title' || state === 'gameover') {
-      score = 0; lives = 3; level = 1;
-      startLevel();
-    } else if (state === 'dead') {
-      startLevel();
-    } else if (state === 'win') {
-      level = Math.min(level + 1, 3);
-      startLevel();
-    }
-  }
+// ─── Input ───────────────────────────────────────────────────────────────────
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Enter') handleEnter();
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
 
-  function startLevel() {
-    platforms = buildLevel(level);
-    ladders   = buildLadders();
-    barrels   = [];
-    barrelTimer = 80;
-    frameCount  = 0;
-    dk = { x: 60, y: 88, animTimer: 0, shakeTimer: 0 };
-    princess = { x: W - 60, y: 100 };
-    resetMario();
-    state = 'playing';
-    updateHUD();
-  }
+// Touch controls
+function bindTouchBtn(id, code) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('touchstart', e => { e.preventDefault(); keys[code] = true; ensureAudio(); }, { passive: false });
+  el.addEventListener('touchend',   e => { e.preventDefault(); keys[code] = false; }, { passive: false });
+}
+bindTouchBtn('btn-left',  'ArrowLeft');
+bindTouchBtn('btn-right', 'ArrowRight');
+bindTouchBtn('btn-up',    'ArrowUp');
+bindTouchBtn('btn-down',  'ArrowDown');
+bindTouchBtn('btn-jump',  'Space');
 
-  function updateHUD() {
-    document.getElementById('score').textContent = score;
-    document.getElementById('lives').textContent = lives;
-    document.getElementById('level').textContent = level;
-    document.getElementById('message').textContent = '';
-  }
+function handleEnter() {
+  ensureAudio();
+  if (state === 'title' || state === 'gameover') { score = 0; lives = 3; level = 1; startLevel(); }
+  else if (state === 'dead') { startLevel(); }
+  else if (state === 'win')  { level = Math.min(level+1, 3); startLevel(); }
+}
 
-  // ── Physics constants ────────────────────────────────────────────
-  const GRAVITY   = 0.45;
-  const JUMP_V    = -9.5;
-  const WALK_SPD  = 2.2;
-  const CLIMB_SPD = 2.0;
+function startLevel() {
+  platforms  = buildLevel(level);
+  ladders    = buildLadders();
+  barrels    = [];
+  particles  = [];
+  floats     = [];
+  barrelTimer = 90;
+  frameCount  = 0;
+  resetDK();
+  princess = { x: W - 60, y: HUD_H + 98 };
+  resetMario();
+  state = 'playing';
+}
 
-  // ── Main update ──────────────────────────────────────────────────
-  function update() {
-    if (state !== 'playing') return;
-    frameCount++;
+// ─── Physics ─────────────────────────────────────────────────────────────────
+const GRAVITY = 0.44, JUMP_V = -9.8, WALK_SPD = 2.3, CLIMB_SPD = 2.1;
 
-    // Death animation
-    if (mario.dead) {
-      mario.deathTimer++;
-      if (mario.deathTimer > 90) {
-        lives--;
-        if (lives <= 0) {
-          state = 'gameover';
-          document.getElementById('message').textContent = 'GAME OVER — ENTER TO RETRY';
-          document.getElementById('lives').textContent = 0;
-        } else {
-          state = 'dead';
-          document.getElementById('message').textContent = 'ENTER TO CONTINUE';
-          document.getElementById('lives').textContent = lives;
-        }
-      }
-      return;
-    }
+// ─── Update ──────────────────────────────────────────────────────────────────
+function update() {
+  if (state !== 'playing') return;
+  frameCount++;
+  updateShake();
+  updateParticles();
+  updateFloats();
 
-    updateMario();
-    updateBarrels();
-    checkCollisions();
-    spawnBarrels();
-  }
-
-  function updateMario() {
-    const left  = keys['ArrowLeft']  || keys['KeyA'];
-    const right = keys['ArrowRight'] || keys['KeyD'];
-    const up    = keys['ArrowUp']    || keys['KeyW'];
-    const down  = keys['ArrowDown']  || keys['KeyS'];
-    const jump  = keys['Space']      || keys['ArrowUp'] || keys['KeyW'];
-
-    // Check if on ladder
-    mario.onLadder = false;
-    for (const lad of ladders) {
-      const lx = lad.x;
-      if (mario.x + MARIO_W > lx - 8 && mario.x < lx + 8 &&
-          mario.y + MARIO_H > lad.yTop && mario.y < lad.yBot) {
-        mario.onLadder = true;
-        break;
-      }
-    }
-
-    if (mario.onLadder && (up || down)) {
-      mario.vy = down ? CLIMB_SPD : -CLIMB_SPD;
-      mario.vx = 0;
-      if (up || down) {
-        mario.animTimer++;
-        if (mario.animTimer > 8) { mario.animFrame ^= 1; mario.animTimer = 0; }
-      }
-    } else {
-      // Horizontal movement
-      mario.vx = right ? WALK_SPD : left ? -WALK_SPD : 0;
-      if (right) mario.facingRight = true;
-      if (left)  mario.facingRight = false;
-
-      // Jump
-      if (jump && mario.onGround) {
-        mario.vy = JUMP_V;
-        mario.onGround = false;
-      }
-
-      // Gravity
-      mario.vy += GRAVITY;
-      if (mario.vy > 12) mario.vy = 12;
-
-      // Walk animation
-      if (mario.vx !== 0 && mario.onGround) {
-        mario.animTimer++;
-        if (mario.animTimer > 6) { mario.animFrame = (mario.animFrame + 1) % 4; mario.animTimer = 0; }
-      } else if (mario.vx === 0) {
-        mario.animFrame = 0;
-      }
-    }
-
+  if (mario.dead) {
+    mario.deathTimer++;
     mario.x += mario.vx;
     mario.y += mario.vy;
-
-    // Wall clamp
-    if (mario.x < 0) mario.x = 0;
-    if (mario.x + MARIO_W > W) mario.x = W - MARIO_W;
-
-    // Platform collision (only falling / standing)
-    mario.onGround = false;
-    if (mario.vy >= 0) {
-      const res = getPlatformBelow(mario.x, mario.y + MARIO_H, MARIO_W);
-      if (res && mario.y + MARIO_H <= res.sy + mario.vy + 2) {
-        mario.y = res.sy - MARIO_H;
-        mario.vy = 0;
-        mario.onGround = true;
-      }
+    mario.vy += 0.3;
+    if (mario.deathTimer > 100) {
+      lives--;
+      if (lives <= 0) { hiScore = Math.max(hiScore, score); localStorage.setItem('dk_hi', hiScore); state = 'gameover'; }
+      else { state = 'dead'; }
     }
+    return;
+  }
 
-    // Fall off bottom → die
-    if (mario.y > H + 40) {
-      triggerDeath();
+  updateMario();
+  updateBarrels();
+  spawnBarrels();
+  checkCollisions();
+}
+
+function updateMario() {
+  const left  = keys['ArrowLeft']  || keys['KeyA'];
+  const right = keys['ArrowRight'] || keys['KeyD'];
+  const up    = keys['ArrowUp']    || keys['KeyW'];
+  const down  = keys['ArrowDown']  || keys['KeyS'];
+  const jump  = keys['Space']      || keys['ArrowUp'] || keys['KeyW'];
+
+  mario.onLadder = false;
+  for (const lad of ladders) {
+    if (mario.x + MW > lad.x - 9 && mario.x < lad.x + 9 &&
+        mario.y + MH > lad.yTop  && mario.y < lad.yBot) {
+      mario.onLadder = true; break;
     }
   }
 
-  function updateBarrels() {
-    for (let i = barrels.length - 1; i >= 0; i--) {
-      const b = barrels[i];
-
-      b.vy += GRAVITY * 0.9;
-      if (b.vy > 12) b.vy = 12;
-
-      b.x += b.vx;
-      b.y += b.vy;
-
-      // Roll animation
-      b.animTimer++;
-      if (b.animTimer > 4) { b.animFrame = (b.animFrame + 1) % 4; b.animTimer = 0; }
-
-      // Platform landing — also tilt barrel with platform
-      if (b.vy >= 0) {
-        const res = getPlatformBelow(b.x, b.y + 12, 16);
-        if (res && b.y + 12 <= res.sy + b.vy + 2) {
-          b.y = res.sy - 12;
-          b.vy = 0;
-          b.onGround = true;
-          // Adjust horizontal direction from slant
-          const tiltBoost = res.plat.slant * 80;
-          b.vx = b.vx > 0
-            ? Math.abs(1.8 + level * 0.3 + tiltBoost)
-            : -Math.abs(1.8 + level * 0.3 - tiltBoost);
-        }
-      }
-
-      // Bounce off walls
-      if (b.x < 0)      { b.x = 0;      b.vx = Math.abs(b.vx); }
-      if (b.x + 16 > W) { b.x = W - 16; b.vx = -Math.abs(b.vx); }
-
-      // Remove if fallen off bottom
-      if (b.y > H + 60) {
-        barrels.splice(i, 1);
-        score += 10;
-        updateHUD();
-      }
-    }
-  }
-
-  function spawnBarrels() {
-    barrelTimer--;
-    if (barrelTimer <= 0) {
-      spawnBarrel();
-      const minInterval = Math.max(60, BARREL_INTERVAL_BASE - frameCount * 0.02 - level * 20);
-      barrelTimer = minInterval + Math.random() * 40;
-      dk.shakeTimer = 20;
-    }
-  }
-
-  function checkCollisions() {
-    // Barrel hits mario
-    for (const b of barrels) {
-      if (rectsOverlap(mario.x, mario.y, MARIO_W, MARIO_H, b.x, b.y, 16, 12)) {
-        triggerDeath();
-        return;
-      }
-    }
-
-    // Mario reaches princess
-    if (rectsOverlap(mario.x, mario.y, MARIO_W, MARIO_H,
-                     princess.x - 14, princess.y - 30, 28, 30)) {
-      state = 'win';
-      score += 500 + level * 200;
-      updateHUD();
-      document.getElementById('message').textContent =
-        level < 3 ? `LEVEL ${level} CLEAR! +${500 + level*200}pts  ENTER→NEXT` : 'YOU WIN!! 🎉 ENTER TO PLAY AGAIN';
-    }
-  }
-
-  function triggerDeath() {
-    mario.dead = true;
-    mario.deathTimer = 0;
+  if (mario.onLadder && (up || down)) {
+    mario.vy = down ? CLIMB_SPD : -CLIMB_SPD;
     mario.vx = 0;
-    mario.vy = -5;
+    mario.animTimer++;
+    if (mario.animTimer > 9) { mario.animFrame ^= 1; mario.animTimer = 0; }
+  } else {
+    mario.vx = right ? WALK_SPD : left ? -WALK_SPD : 0;
+    if (right) mario.facingRight = true;
+    if (left)  mario.facingRight = false;
+
+    if (jump && mario.onGround) {
+      mario.vy = JUMP_V;
+      mario.onGround = false;
+      sfxJump();
+    }
+
+    mario.vy = Math.min(mario.vy + GRAVITY, 13);
+
+    if (mario.vx !== 0 && mario.onGround) {
+      mario.animTimer++;
+      if (mario.animTimer > 6) { mario.animFrame = (mario.animFrame+1)%4; mario.animTimer = 0; }
+    } else if (mario.vx === 0 && mario.onGround) {
+      mario.animFrame = 0;
+    }
   }
 
-  function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
-    return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+  mario.x += mario.vx;
+  mario.y += mario.vy;
+
+  mario.x = Math.max(0, Math.min(mario.x, W - MW));
+
+  mario.onGround = false;
+  if (mario.vy >= 0) {
+    const res = getPlatformBelow(mario.x, mario.y + MH, MW);
+    if (res && mario.y + MH <= res.sy + mario.vy + 2) {
+      mario.y = res.sy - MH;
+      mario.vy = 0;
+      mario.onGround = true;
+    }
   }
 
-  // ── Drawing helpers ───────────────────────────────────────────────
+  if (mario.y > H + 50) triggerDeath();
+}
 
-  function drawPlatforms() {
-    for (const p of platforms) {
-      // Shadow
-      ctx.fillStyle = '#4a2a0a';
-      ctx.fillRect(p.x + 3, p.y + 10, p.w, 14);
+function updateBarrels() {
+  for (let i = barrels.length-1; i >= 0; i--) {
+    const b = barrels[i];
+    b.vy = Math.min(b.vy + GRAVITY * 0.88, 13);
+    b.x += b.vx;
+    b.y += b.vy;
 
-      // Draw slanted platform as a polygon
-      const leftY  = platY(p, p.x);
-      const rightY = platY(p, p.x + p.w);
-      ctx.fillStyle = C.platform;
+    b.animTimer++;
+    if (b.animTimer > 4) { b.animFrame = (b.animFrame+1)%4; b.animTimer = 0; }
+
+    if (b.vy >= 0) {
+      const res = getPlatformBelow(b.x, b.y+12, 16);
+      if (res && b.y+12 <= res.sy + b.vy + 2) {
+        b.y = res.sy - 12; b.vy = 0; b.onGround = true;
+        const boost = res.plat.slant * 80;
+        const base  = 1.7 + level * 0.35;
+        b.vx = b.vx > 0 ? Math.abs(base + boost) : -Math.abs(base - boost);
+      }
+    }
+
+    // Bounce off walls
+    if (b.x < 0)      { b.x = 0;      b.vx =  Math.abs(b.vx); }
+    if (b.x+16 > W)   { b.x = W-16;   b.vx = -Math.abs(b.vx); }
+
+    // Fell off bottom
+    if (b.y > H + 60) {
+      const pts = 10;
+      score += pts;
+      hiScore = Math.max(hiScore, score);
+      spawnFloat(b.x, H - 20, `+${pts}`);
+      barrels.splice(i, 1);
+    }
+
+    // Jump-over scoring
+    if (!b.scored && mario.vy > 0 &&
+        mario.x + MW > b.x - 4 && mario.x < b.x + 20 &&
+        mario.y + MH < b.y + 4 && mario.y + MH > b.y - 14) {
+      b.scored = true;
+      const pts = 100;
+      score += pts; hiScore = Math.max(hiScore, score);
+      spawnFloat(b.x + 8, b.y - 10, `+${pts}`, '#00FF88');
+      sfxHop();
+    }
+  }
+}
+
+function spawnBarrels() {
+  barrelTimer--;
+  if (barrelTimer <= 0) {
+    spawnBarrel();
+    dk.shakeTimer = 24;
+    const minInt = Math.max(55, BARREL_BASE - frameCount * 0.02 - level * 18);
+    barrelTimer = minInt + Math.random() * 40;
+  }
+}
+
+function checkCollisions() {
+  // Barrel hits mario
+  for (const b of barrels) {
+    if (rectsOverlap(mario.x, mario.y, MW, MH, b.x, b.y-2, 16, 14)) {
+      triggerDeath(); return;
+    }
+  }
+
+  // Reach princess
+  if (rectsOverlap(mario.x, mario.y, MW, MH, princess.x-14, princess.y-32, 28, 32)) {
+    state = 'win';
+    const pts = 500 + level * 200;
+    score += pts; hiScore = Math.max(hiScore, score);
+    localStorage.setItem('dk_hi', hiScore);
+    sfxWin();
+    spawnParticles(princess.x, princess.y, 40, ['#FF69B4','#FFD700','#FF1040','#fff'], 5, 60);
+  }
+}
+
+function triggerDeath() {
+  if (mario.dead) return;
+  mario.dead = true; mario.deathTimer = 0;
+  mario.vx = 0; mario.vy = -6;
+  triggerShake(8);
+  sfxDeath();
+  spawnParticles(mario.x + MW/2, mario.y + MH/2, 20, ['#FF4500','#FFD700','#FF0000','#fff'], 4, 45);
+}
+
+function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+  return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
+}
+
+// ─── Drawing ─────────────────────────────────────────────────────────────────
+
+function drawBg() {
+  const grad = ctx.createLinearGradient(0, HUD_H, 0, H);
+  grad.addColorStop(0, '#0a0a20');
+  grad.addColorStop(1, '#161630');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, HUD_H, W, GAME_H);
+
+  // Stars
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  for (let i = 0; i < 35; i++) {
+    const sx = (i * 139 + 60) % W;
+    const sy = HUD_H + ((i * 89 + 15) % (GAME_H * 0.45));
+    if (Math.sin(frameCount * 0.04 + i) > 0.6) ctx.fillRect(sx, sy, 1.5, 1.5);
+  }
+}
+
+function drawPlatforms() {
+  for (const p of platforms) {
+    const lY = platY(p, p.x), rY = platY(p, p.x + p.w);
+
+    // Drop shadow
+    ctx.fillStyle = C.platShad;
+    ctx.beginPath();
+    ctx.moveTo(p.x+4,     lY+14);
+    ctx.lineTo(p.x+p.w+4, rY+14);
+    ctx.lineTo(p.x+p.w+4, rY+20);
+    ctx.lineTo(p.x+4,     lY+20);
+    ctx.closePath(); ctx.fill();
+
+    // Body
+    ctx.fillStyle = C.platform;
+    ctx.beginPath();
+    ctx.moveTo(p.x,     lY);
+    ctx.lineTo(p.x+p.w, rY);
+    ctx.lineTo(p.x+p.w, rY+14);
+    ctx.lineTo(p.x,     lY+14);
+    ctx.closePath(); ctx.fill();
+
+    // Top highlight strip
+    const grad = ctx.createLinearGradient(0, lY, 0, lY+5);
+    grad.addColorStop(0, C.platTop);
+    grad.addColorStop(1, C.platform);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(p.x,     lY);
+    ctx.lineTo(p.x+p.w, rY);
+    ctx.lineTo(p.x+p.w, rY+5);
+    ctx.lineTo(p.x,     lY+5);
+    ctx.closePath(); ctx.fill();
+
+    // Rivet dots
+    ctx.fillStyle = '#FFD700';
+    for (let rx = p.x + 20; rx < p.x + p.w - 10; rx += 40) {
+      const ry = platY(p, rx) + 7;
+      ctx.beginPath(); ctx.arc(rx, ry, 2.5, 0, Math.PI*2); ctx.fill();
+    }
+  }
+}
+
+function drawLadders() {
+  for (const lad of ladders) {
+    const lx = lad.x;
+    // Rails
+    ctx.fillStyle = C.ladder;
+    ctx.fillRect(lx-4, lad.yTop, 3, lad.yBot - lad.yTop);
+    ctx.fillRect(lx+1, lad.yTop, 3, lad.yBot - lad.yTop);
+    // Rungs
+    for (let ry = lad.yTop + 10; ry < lad.yBot; ry += 14) {
+      const gr = ctx.createLinearGradient(lx-4, ry, lx+5, ry);
+      gr.addColorStop(0, '#B8860B');
+      gr.addColorStop(0.5, C.ladderRung);
+      gr.addColorStop(1, '#B8860B');
+      ctx.fillStyle = gr;
+      ctx.fillRect(lx-4, ry, 9, 3);
+    }
+  }
+}
+
+function drawMario() {
+  const x = Math.round(mario.x), y = Math.round(mario.y);
+  const f = mario.facingRight ? 1 : -1;
+
+  ctx.save();
+  ctx.translate(x + MW/2, y);
+  ctx.scale(f, 1);
+
+  if (mario.dead) {
+    // Spinning starburst
+    const a = mario.deathTimer * 0.22;
+    ctx.rotate(a);
+    for (let i = 0; i < 8; i++) {
+      const ang = i * Math.PI / 4;
+      const col = i%2 === 0 ? '#FF4500' : '#FFD700';
+      ctx.strokeStyle = col; ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(p.x,        leftY);
-      ctx.lineTo(p.x + p.w,  rightY);
-      ctx.lineTo(p.x + p.w,  rightY + 14);
-      ctx.lineTo(p.x,        leftY  + 14);
-      ctx.closePath();
-      ctx.fill();
-
-      // Top stripe
-      ctx.strokeStyle = C.platTop;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(p.x,       leftY);
-      ctx.lineTo(p.x + p.w, rightY);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(ang)*15, Math.sin(ang)*15);
       ctx.stroke();
     }
+    ctx.restore(); return;
   }
 
-  function drawLadders() {
-    for (const lad of ladders) {
-      const lx = lad.x;
-      ctx.fillStyle = C.ladder;
-      // Side rails
-      ctx.fillRect(lx - 4, lad.yTop, 3, lad.yBot - lad.yTop);
-      ctx.fillRect(lx + 1, lad.yTop, 3, lad.yBot - lad.yTop);
-      // Rungs
-      ctx.fillStyle = C.ladderRung;
-      for (let ry = lad.yTop + 8; ry < lad.yBot; ry += 14) {
-        ctx.fillRect(lx - 4, ry, 8, 3);
-      }
-    }
+  const fr = mario.animFrame;
+
+  // Cap brim
+  ctx.fillStyle = C.marioCap;
+  ctx.fillRect(-9, 2, 18, 4);
+  // Cap top
+  ctx.fillRect(-7, -2, 14, 5);
+
+  // Face
+  ctx.fillStyle = C.marioSkin;
+  ctx.fillRect(-6, 6, 12, 8);
+
+  // Eye
+  ctx.fillStyle = '#000';
+  ctx.fillRect(1, 7, 3, 3);
+
+  // Mustache
+  ctx.fillStyle = '#4a2800';
+  ctx.fillRect(-5, 12, 11, 2);
+
+  // Body/shirt
+  ctx.fillStyle = C.mario;
+  ctx.fillRect(-8, 14, 16, 8);
+
+  // Overalls
+  ctx.fillStyle = C.marioPants;
+  if (fr === 0) {
+    // Stand
+    ctx.fillRect(-7, 22, 14, 7);
+    ctx.fillRect(-7, 29, 5, 5); ctx.fillRect(2, 29, 5, 5);
+  } else if (fr === 1) {
+    ctx.fillRect(-7, 22, 14, 7);
+    ctx.fillRect(-8, 29, 6, 6); ctx.fillRect(2, 29, 6, 6);
+  } else if (fr === 2) {
+    ctx.fillRect(-7, 22, 14, 6);
+    ctx.fillRect(-6, 28, 12, 4);
+  } else {
+    ctx.fillRect(-7, 22, 14, 7);
+    ctx.fillRect(-5, 29, 5, 6); ctx.fillRect(0, 29, 5, 6);
   }
 
-  function drawMario() {
-    const x = Math.round(mario.x);
-    const y = Math.round(mario.y);
-    const f = mario.facingRight ? 1 : -1;
+  // Arms
+  ctx.fillStyle = C.mario;
+  ctx.fillRect(-12, 14, 4, 5);
+  ctx.fillRect(8, 14, 4, 5);
 
-    ctx.save();
-    ctx.translate(x + MARIO_W / 2, y);
-    ctx.scale(f, 1);
+  // Shoes
+  ctx.fillStyle = '#1a0800';
+  if (fr === 2) {
+    ctx.fillRect(-7, 33, 14, 4);
+  } else {
+    ctx.fillRect(-8, 33, 6, 4); ctx.fillRect(2, 33, 6, 4);
+  }
 
-    if (mario.dead) {
-      // Spinning star effect
-      const a = mario.deathTimer * 0.2;
-      ctx.rotate(a);
-      ctx.fillStyle = '#FFD700';
-      for (let i = 0; i < 8; i++) {
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(Math.cos(i * Math.PI / 4) * 14, Math.sin(i * Math.PI / 4) * 14);
-        ctx.strokeStyle = i % 2 === 0 ? '#FF4500' : '#FFD700';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-      }
-      ctx.restore();
-      return;
-    }
+  ctx.restore();
+}
 
-    const frame = mario.animFrame;
+function drawDK() {
+  const shake = dk.shakeTimer > 0 ? (Math.random()-0.5)*5 : 0;
+  dk.shakeTimer = Math.max(0, dk.shakeTimer-1);
+  const x = dk.x + shake, y = dk.y;
+  dk.animTimer++;
+  const fr = Math.floor(dk.animTimer / 11) % 2;
 
-    // Cap
+  ctx.save();
+  ctx.translate(x + 32, y + 32);
+
+  // Body
+  ctx.fillStyle = C.dkFur;
+  ctx.beginPath(); ctx.ellipse(0, 12, 30, 32, 0, 0, Math.PI*2); ctx.fill();
+  // Belly
+  ctx.fillStyle = C.dkBelly;
+  ctx.beginPath(); ctx.ellipse(0, 16, 17, 15, 0, 0, Math.PI*2); ctx.fill();
+
+  // Head
+  ctx.fillStyle = C.dkFur;
+  ctx.beginPath(); ctx.ellipse(0, -22, 22, 20, 0, 0, Math.PI*2); ctx.fill();
+  // Muzzle
+  ctx.fillStyle = C.dkBelly;
+  ctx.beginPath(); ctx.ellipse(0, -16, 14, 12, 0, 0, Math.PI*2); ctx.fill();
+
+  // Eyes
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.arc(-8, -26, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc( 8, -26, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-7, -27, 2, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc( 9, -27, 2, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.arc(-6, -27, 1, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc( 10,-27, 1, 0, Math.PI*2); ctx.fill();
+
+  // Angry brows
+  ctx.strokeStyle = '#1a0500'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-14,-32); ctx.lineTo(-2,-28); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(14,-32);  ctx.lineTo(2,-28);  ctx.stroke();
+
+  // Nostrils
+  ctx.fillStyle = '#3a1500';
+  ctx.beginPath(); ctx.arc(-4,-18,2,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc( 4,-18,2,0,Math.PI*2); ctx.fill();
+
+  // Mouth + teeth
+  ctx.fillStyle = '#2a0800';
+  ctx.beginPath(); ctx.arc(0, -8, 9, 0, Math.PI); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(-7, -9, 4, 5); ctx.fillRect(3,-9,4,5);
+
+  // Arms
+  ctx.fillStyle = C.dkFur;
+  const liftL = fr===0 ? -10 : 0;
+  ctx.beginPath(); ctx.ellipse(-32, -4+liftL, 11, 24, -0.3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse( 32, -4,        11, 24,  0.3, 0, Math.PI*2); ctx.fill();
+  // Fists
+  ctx.beginPath(); ctx.arc(-32, -4+liftL+24, 9, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc( 32, -4+24,        9, 0, Math.PI*2); ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBarrel(b) {
+  const x = Math.round(b.x), y = Math.round(b.y);
+  const angle = b.animFrame * Math.PI / 2 * (b.vx > 0 ? 1 : -1);
+
+  ctx.save();
+  ctx.translate(x+8, y+6);
+  ctx.rotate(angle);
+
+  // Body
+  const bg = ctx.createRadialGradient(-2,-2,1, 0,0,10);
+  bg.addColorStop(0, '#C06030');
+  bg.addColorStop(1, C.barrel);
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.ellipse(0, 0, 9, 11, 0, 0, Math.PI*2); ctx.fill();
+
+  // Bands
+  ctx.strokeStyle = C.barrelBand; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.ellipse(0,-3, 9,3.5,0,0,Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0, 3, 9,3.5,0,0,Math.PI*2); ctx.stroke();
+
+  // Wood grain lines
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-5,-8); ctx.lineTo(-5,8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( 5,-8); ctx.lineTo( 5,8); ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawPrincess() {
+  const x = Math.round(princess.x), y = Math.round(princess.y);
+  const bob = Math.sin(frameCount * 0.06) * 1.5;
+
+  ctx.save();
+  ctx.translate(x, y + bob);
+
+  // Dress (gradient)
+  const dg = ctx.createLinearGradient(-18,0,18,30);
+  dg.addColorStop(0,'#FF89C4'); dg.addColorStop(1,'#C0397C');
+  ctx.fillStyle = dg;
+  ctx.beginPath();
+  ctx.moveTo(-14,0); ctx.lineTo(14,0); ctx.lineTo(20,32); ctx.lineTo(-20,32);
+  ctx.closePath(); ctx.fill();
+
+  // Bodice
+  ctx.fillStyle = '#FFB6D0';
+  ctx.fillRect(-9,-20,18,22);
+
+  // Arms
+  ctx.fillStyle = C.marioSkin;
+  ctx.fillRect(-14,-18,6,14); ctx.fillRect(8,-18,6,14);
+
+  // Head
+  ctx.fillStyle = C.marioSkin;
+  ctx.beginPath(); ctx.arc(0,-30,11,0,Math.PI*2); ctx.fill();
+
+  // Hair
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath(); ctx.arc(0,-34,12,Math.PI,0); ctx.fill();
+  ctx.fillRect(-12,-34,5,14); ctx.fillRect(7,-34,5,14);
+
+  // Eyes
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.arc(-4,-31,2,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc( 4,-31,2,0,Math.PI*2); ctx.fill();
+
+  // Mouth
+  ctx.strokeStyle = '#c06080'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(0,-27,3,0.1,Math.PI-0.1); ctx.stroke();
+
+  // Crown
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath();
+  ctx.moveTo(-10,-41); ctx.lineTo(-10,-46); ctx.lineTo(-4,-42); ctx.lineTo(0,-48);
+  ctx.lineTo(4,-42); ctx.lineTo(10,-46); ctx.lineTo(10,-41);
+  ctx.closePath(); ctx.fill();
+  // Crown gems
+  ctx.fillStyle = '#FF1040';
+  ctx.beginPath(); ctx.arc(0,-44,2,0,Math.PI*2); ctx.fill();
+
+  // Pulsing heart
+  const pulse = 0.9 + Math.sin(frameCount * 0.09) * 0.14;
+  ctx.save();
+  ctx.translate(0,-62); ctx.scale(pulse,pulse);
+  ctx.fillStyle = C.heart;
+  ctx.beginPath();
+  ctx.moveTo(0,5); ctx.bezierCurveTo(-9,-3,-14,5,0,13); ctx.bezierCurveTo(14,5,9,-3,0,5);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.restore();
+}
+
+// ─── HUD ─────────────────────────────────────────────────────────────────────
+function drawHUD() {
+  // Background bar
+  ctx.fillStyle = C.hudBg;
+  ctx.fillRect(0, 0, W, HUD_H);
+  ctx.strokeStyle = C.hudBorder;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0, 0, W, HUD_H);
+
+  ctx.fillStyle = '#888';
+  ctx.font = '11px "Courier New"';
+  ctx.fillText('1UP', 12, 16);
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 16px "Courier New"';
+  ctx.fillText(String(score).padStart(6,'0'), 12, 34);
+
+  ctx.fillStyle = '#888';
+  ctx.font = '11px "Courier New"';
+  ctx.textAlign = 'center';
+  ctx.fillText('HI-SCORE', W/2, 16);
+  ctx.fillStyle = '#FF4500';
+  ctx.font = 'bold 16px "Courier New"';
+  ctx.fillText(String(hiScore).padStart(6,'0'), W/2, 34);
+
+  ctx.fillStyle = '#888';
+  ctx.font = '11px "Courier New"';
+  ctx.textAlign = 'right';
+  ctx.fillText(`LEVEL ${level}`, W-12, 16);
+
+  // Lives as mini mario icons
+  for (let i = 0; i < lives; i++) {
+    const lx = W - 12 - i * 20;
+    const ly = 28;
     ctx.fillStyle = C.marioCap;
-    ctx.fillRect(-8, 0, 16, 4);
-    ctx.fillRect(-6, 4, 12, 4);
-
-    // Face
+    ctx.fillRect(lx-7, ly-6, 14, 3);
+    ctx.fillRect(lx-5, ly-9, 10, 4);
     ctx.fillStyle = C.marioSkin;
-    ctx.fillRect(-6, 8, 12, 8);
-
-    // Eyes
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 9, 3, 3);
-
-    // Mustache
-    ctx.fillStyle = '#5C3317';
-    ctx.fillRect(-4, 14, 10, 2);
-
-    // Body (shirt)
+    ctx.fillRect(lx-5, ly-3, 10, 6);
     ctx.fillStyle = C.mario;
-    ctx.fillRect(-8, 16, 16, 8);
-
-    // Pants
+    ctx.fillRect(lx-6, ly+3, 12, 5);
     ctx.fillStyle = C.marioPants;
-    if (frame === 1) {
-      // Walk frame 1
-      ctx.fillRect(-8, 24, 7, 8);
-      ctx.fillRect(1,  24, 7, 8);
-      ctx.fillRect(-8, 32, 5, 6);
-      ctx.fillRect(3,  32, 5, 6);
-    } else if (frame === 2) {
-      ctx.fillRect(-8, 24, 16, 8);
-      ctx.fillRect(-6, 32, 12, 5);
-    } else if (frame === 3) {
-      ctx.fillRect(-8, 24, 7, 8);
-      ctx.fillRect(1,  24, 7, 8);
-      ctx.fillRect(-5, 32, 5, 6);
-      ctx.fillRect(0,  32, 5, 6);
-    } else {
-      // Standing
-      ctx.fillRect(-8, 24, 16, 8);
-      ctx.fillRect(-7, 32, 6, 5);
-      ctx.fillRect(1,  32, 6, 5);
-    }
-
-    // Arms
-    ctx.fillStyle = C.mario;
-    ctx.fillRect(-12, 16, 4, 6);
-    ctx.fillRect(8,   16, 4, 6);
-
-    ctx.restore();
+    ctx.fillRect(lx-6, ly+7, 12, 4);
   }
 
-  function drawDK() {
-    const shake = dk.shakeTimer > 0 ? (Math.random() - 0.5) * 4 : 0;
-    dk.shakeTimer = Math.max(0, dk.shakeTimer - 1);
-    const x = dk.x + shake;
-    const y = dk.y;
+  ctx.textAlign = 'left';
+}
 
-    dk.animTimer++;
-    const frame = Math.floor(dk.animTimer / 12) % 2;
+// ─── Overlay screens ─────────────────────────────────────────────────────────
+function drawOverlay(lines, subLines=[]) {
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  ctx.fillRect(0, HUD_H, W, GAME_H);
 
-    ctx.save();
-    ctx.translate(x + 30, y + 30);
+  ctx.textAlign = 'center';
+  lines.forEach(([text, color, size, y]) => {
+    ctx.font = `bold ${size}px "Courier New"`;
+    // Drop shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillText(text, W/2+2, y+2);
+    ctx.fillStyle = color;
+    ctx.fillText(text, W/2, y);
+  });
+  subLines.forEach(([text, color, size, y]) => {
+    ctx.font = `${size}px "Courier New"`;
+    ctx.fillStyle = color;
+    ctx.fillText(text, W/2, y);
+  });
+  ctx.textAlign = 'left';
+}
 
-    // Body
-    ctx.fillStyle = C.dkFur;
-    ctx.beginPath();
-    ctx.ellipse(0, 10, 28, 30, 0, 0, Math.PI * 2);
-    ctx.fill();
+function drawDeadOverlay() {
+  drawOverlay(
+    [['OOPS!', '#FF4500', 44, HUD_H+200]],
+    [['PRESS ENTER TO CONTINUE', '#FFD700', 16, HUD_H+260]]
+  );
+}
+function drawGameoverOverlay() {
+  drawOverlay(
+    [['GAME OVER', '#FF1040', 48, HUD_H+200]],
+    [
+      [`FINAL SCORE: ${score}`, '#fff', 18, HUD_H+255],
+      ['PRESS ENTER TO RETRY', '#FFD700', 16, HUD_H+290],
+    ]
+  );
+}
+function drawWinOverlay() {
+  const msg = level < 3 ? `LEVEL ${level} CLEAR!` : 'YOU WIN!!';
+  const sub  = level < 3 ? 'PRESS ENTER FOR NEXT LEVEL' : 'PRESS ENTER TO PLAY AGAIN';
+  drawOverlay(
+    [[msg, '#FFD700', 42, HUD_H+200]],
+    [
+      [`+${500+level*200} POINTS`, '#00FF88', 20, HUD_H+255],
+      [sub, '#fff', 16, HUD_H+290],
+    ]
+  );
+}
 
-    ctx.fillStyle = C.marioSkin;
-    ctx.beginPath();
-    ctx.ellipse(0, 14, 16, 14, 0, 0, Math.PI * 2);
-    ctx.fill();
+// ─── Title screen ────────────────────────────────────────────────────────────
+function drawTitle() {
+  // BG
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#050510'); bg.addColorStop(1,'#101030');
+  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
 
-    // Head
-    ctx.fillStyle = C.dkFur;
-    ctx.beginPath();
-    ctx.ellipse(0, -20, 20, 18, 0, 0, Math.PI * 2);
-    ctx.fill();
+  // Starfield
+  ctx.fillStyle='rgba(255,255,255,0.5)';
+  for(let i=0;i<50;i++){
+    const sx=(i*137+40)%W, sy=(i*89+10)%(H*0.6);
+    if(Math.sin(frameCount*0.04+i)>0.55) ctx.fillRect(sx,sy,2,2);
+  }
 
-    ctx.fillStyle = C.marioSkin;
-    ctx.beginPath();
-    ctx.ellipse(0, -14, 12, 10, 0, 0, Math.PI * 2);
-    ctx.fill();
+  // Title DONKEY KONG with big shadow
+  ctx.textAlign = 'center';
 
-    // Eyes
-    ctx.fillStyle = '#000';
-    ctx.beginPath(); ctx.arc(-7, -22, 3, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc( 7, -22, 3, 0, Math.PI * 2); ctx.fill();
+  // Outer glow
+  ctx.shadowColor = '#FF4500'; ctx.shadowBlur = 24;
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 58px "Courier New"';
+  ctx.fillText('DONKEY', W/2, 150);
+  ctx.fillText('KONG', W/2, 214);
+  ctx.shadowBlur = 0;
+
+  // Subtitle
+  ctx.fillStyle = '#FF4500';
+  ctx.font = 'bold 18px "Courier New"';
+  ctx.fillText('— ARCADE CLASSIC —', W/2, 250);
+
+  // Mini DK on title
+  const savedDK = {...dk};
+  dk = { x: W/2 - 36, y: 270, animTimer: frameCount, shakeTimer: 0 };
+  drawDK();
+  dk = savedDK;
+
+  // Blinking prompt
+  if (Math.floor(frameCount / 28) % 2 === 0) {
     ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(-6, -23, 1.5, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc( 8, -23, 1.5, 0, Math.PI * 2); ctx.fill();
-
-    // Angry brow
-    ctx.strokeStyle = '#2a0a00';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(-12, -28); ctx.lineTo(-2, -25);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(12, -28); ctx.lineTo(2, -25);
-    ctx.stroke();
-
-    // Mouth with teeth
-    ctx.fillStyle = '#2a0a00';
-    ctx.fillRect(-8, -10, 16, 5);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(-6, -10, 4, 4);
-    ctx.fillRect(2, -10, 4, 4);
-
-    // Arms with barrel toss animation
-    ctx.fillStyle = C.dkFur;
-    const armLift = frame === 0 ? -8 : 0;
-    // Left arm
-    ctx.beginPath();
-    ctx.ellipse(-30, -5 + armLift, 10, 22, -0.3, 0, Math.PI * 2);
-    ctx.fill();
-    // Right arm
-    ctx.beginPath();
-    ctx.ellipse(30, -5, 10, 22, 0.3, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-  }
-
-  function drawBarrel(b) {
-    const x = Math.round(b.x);
-    const y = Math.round(b.y);
-    const angle = b.animFrame * Math.PI / 2;
-
-    ctx.save();
-    ctx.translate(x + 8, y + 6);
-    ctx.rotate(angle * (b.vx > 0 ? 1 : -1));
-
-    // Barrel body
-    ctx.fillStyle = C.barrel;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 8, 10, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Metal bands
-    ctx.strokeStyle = C.barrelBand;
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.ellipse(0, -3, 8, 3, 0, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(0,  3, 8, 3, 0, 0, Math.PI * 2); ctx.stroke();
-
-    ctx.restore();
-  }
-
-  function drawPrincess() {
-    const x = Math.round(princess.x);
-    const y = Math.round(princess.y);
-
-    ctx.save();
-    ctx.translate(x, y);
-
-    // Dress
-    ctx.fillStyle = C.princess;
-    ctx.beginPath();
-    ctx.moveTo(-14, 0);
-    ctx.lineTo(14, 0);
-    ctx.lineTo(18, 30);
-    ctx.lineTo(-18, 30);
-    ctx.closePath();
-    ctx.fill();
-
-    // Body
-    ctx.fillStyle = '#FFB6C1';
-    ctx.fillRect(-8, -20, 16, 22);
-
-    // Head
-    ctx.fillStyle = C.marioSkin;
-    ctx.beginPath();
-    ctx.arc(0, -28, 10, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Hair
-    ctx.fillStyle = '#FFD700';
-    ctx.beginPath();
-    ctx.arc(0, -32, 11, Math.PI, 0);
-    ctx.fill();
-    ctx.fillRect(-11, -32, 5, 12);
-    ctx.fillRect(6, -32, 5, 12);
-
-    // Heart above
-    const pulse = 0.9 + Math.sin(frameCount * 0.08) * 0.15;
-    ctx.save();
-    ctx.translate(0, -52);
-    ctx.scale(pulse, pulse);
-    ctx.fillStyle = C.heart;
-    ctx.beginPath();
-    ctx.moveTo(0, 4);
-    ctx.bezierCurveTo(-8, -4, -12, 4, 0, 10);
-    ctx.bezierCurveTo(12, 4, 8, -4, 0, 4);
-    ctx.fill();
-    ctx.restore();
-
-    ctx.restore();
-  }
-
-  function drawBackground() {
-    // Gradient sky
-    const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, '#0d0d2b');
-    grad.addColorStop(1, '#1a1a3e');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-
-    // Stars
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    for (let i = 0; i < 30; i++) {
-      const sx = ((i * 137 + 50) % W);
-      const sy = ((i * 97  + 20) % (H / 2));
-      const blink = Math.sin(frameCount * 0.05 + i) > 0.7;
-      if (blink) {
-        ctx.fillRect(sx, sy, 2, 2);
-      }
-    }
-  }
-
-  function drawTitle() {
-    ctx.fillStyle = '#0d0d1a';
-    ctx.fillRect(0, 0, W, H);
-
-    // Title
-    ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 54px Courier New';
-    ctx.textAlign = 'center';
-    ctx.fillText('DONKEY', W/2, 160);
-    ctx.fillText('KONG', W/2, 220);
-
-    ctx.fillStyle = '#FF4500';
-    ctx.font = 'bold 20px Courier New';
-    ctx.fillText('~ ARCADE CLASSIC ~', W/2, 260);
-
-    // Draw mini DK
-    dk = { x: W/2 - 60, y: 280, animTimer: frameCount, shakeTimer: 0 };
-    drawDK();
-
-    ctx.fillStyle = '#fff';
-    ctx.font = '18px Courier New';
+    ctx.font = 'bold 18px "Courier New"';
     ctx.fillText('PRESS ENTER TO PLAY', W/2, 440);
-    ctx.fillText('ARROW KEYS / WASD + SPACE to jump', W/2, 470);
-    ctx.textAlign = 'left';
   }
 
-  // ── Main render ──────────────────────────────────────────────────
-  function draw() {
-    if (state === 'title') {
-      drawTitle();
-      return;
-    }
+  ctx.fillStyle = '#666';
+  ctx.font = '13px "Courier New"';
+  ctx.fillText('ARROWS / WASD  |  SPACE to jump', W/2, 472);
 
-    ctx.clearRect(0, 0, W, H);
-    drawBackground();
-    drawPlatforms();
-    drawLadders();
-    drawDK();
-    drawPrincess();
-
-    for (const b of barrels) drawBarrel(b);
-
-    drawMario();
-
-    // Score popup when barrel cleared
+  if (hiScore > 0) {
+    ctx.fillStyle = '#FFD700';
+    ctx.font = '13px "Courier New"';
+    ctx.fillText(`HI-SCORE: ${hiScore}`, W/2, 500);
   }
 
-  // ── Game loop ────────────────────────────────────────────────────
-  function loop() {
-    update();
-    draw();
-    requestAnimationFrame(loop);
+  ctx.textAlign = 'left';
+  ctx.shadowBlur = 0;
+}
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+function draw() {
+  ctx.save();
+  ctx.translate(shakeX, shakeY);
+
+  if (state === 'title') {
+    drawTitle();
+    ctx.restore();
+    return;
   }
 
-  // Start with title
-  state = 'title';
-  document.getElementById('message').textContent = '';
-  loop();
-  </script>
+  ctx.clearRect(0, 0, W, H);
+  drawBg();
+  drawPlatforms();
+  drawLadders();
+  drawDK();
+  drawPrincess();
+  for (const b of barrels) drawBarrel(b);
+  drawMario();
+  drawParticles();
+  drawFloats();
+  drawHUD();
+
+  if (state === 'dead')     drawDeadOverlay();
+  if (state === 'gameover') drawGameoverOverlay();
+  if (state === 'win')      drawWinOverlay();
+
+  ctx.restore();
+}
+
+// ─── Loop ────────────────────────────────────────────────────────────────────
+function loop() {
+  update();
+  draw();
+  frameCount++;
+  requestAnimationFrame(loop);
+}
+
+state = 'title';
+frameCount = 0;
+loop();
+</script>
 </body>
 </html>
