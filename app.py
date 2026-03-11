@@ -6,11 +6,11 @@ app = Flask(__name__)
 GAMES = [
     {
         'id': 'donkey-kong',
-        'title': 'Donkey Kong',
-        'description': 'The ultimate retro challenge. Dodge barrels, climb ladders, and save the day in this neon-infused classic.',
-        'icon': '🦍',
+        'title': 'Donkey Kong 2077',
+        'description': 'Scale the neon-drenched spires of Neo-Tokyo to rescue the captive from a rogue bionic gorilla.',
+        'icon': '⚡',
         'poster': '/static/images/donkey_kong_poster.png',
-        'color': '#ff6600',
+        'color': '#ff9500',
         'glow': 'rgba(255,102,0,0.4)',
     },
     {
