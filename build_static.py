@@ -38,7 +38,7 @@ def build_static():
         game_cards_html += f'''
         <div class="game-wrapper">
             <div class="card-glow-bg" style="--card-color: {color};"></div>
-            <a class="game-card" href="play/{game_data['id']}/" style="--card-color: {color}; --card-glow: {glow};">
+            <a class="game-card" href="games/{game_data['id']}/index.html" style="--card-color: {color}; --card-glow: {glow};">
                 <div class="card-image-wrap">
                     <img src="{poster}" alt="{game_data['title']} Poster" class="card-poster">
                     <div class="card-overlay"></div>
