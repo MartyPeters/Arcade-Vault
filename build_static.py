@@ -1,5 +1,6 @@
 import os
 import shutil
+from app import GAMES
 
 def build_static():
     print("🚀 Building Static Arcade Vault...")
@@ -28,29 +29,48 @@ def build_static():
             if os.path.isdir(os.path.join('games', folder)):
                 games.append(folder)
 
-    # Generate game cards HTML (matching the Jinja2 logic in templates)
+    # Generate game cards HTML (matching the new hub.html structure)
     game_cards_html = ""
-    for game in games:
-        # Simple title casing
-        title = game.replace('-', ' ').title()
+    for game_data in [g for g in GAMES]: # Use GAMES list from app.py if possible, else hardcode
+        color = game_data['color']
+        glow = game_data['glow']
+        poster = game_data['poster']
         game_cards_html += f'''
-        <div class="game-card">
-            <div class="game-icon">{'🕹️' if 'kong' in game else '🚀'}</div>
-            <h3>{title}</h3>
-            <p>Experience {title} in the Arcade Vault.</p>
-            <a href="games/{game}/index.html" class="play-btn">PLAY NOW</a>
+        <div class="game-wrapper">
+            <div class="card-glow-bg" style="--card-color: {color};"></div>
+            <a class="game-card" href="play/{game_data['id']}/" style="--card-color: {color}; --card-glow: {glow};">
+                <div class="card-image-wrap">
+                    <img src="{poster}" alt="{game_data['title']} Poster" class="card-poster">
+                    <div class="card-overlay"></div>
+                    <div class="card-icon">{game_data['icon']}</div>
+                </div>
+                <div class="card-body">
+                    <div class="card-header">
+                        <h2>{game_data['title']}</h2>
+                        <div class="platform-tag">WEB-OS 2077</div>
+                    </div>
+                    <p class="card-desc">{game_data['description']}</p>
+                    <div class="card-footer">
+                        <span class="status-indicator active">ONLINE</span>
+                        <div class="play-btn">LAUNCH ▶</div>
+                    </div>
+                </div>
+            </a>
         </div>
         '''
 
-    # Replace the Jinja2 block in the template with our generated HTML
-    # This is a bit of a hack but avoids needing to install Jinja2 for a simple build
+    # Replace the Jinja2 block
     import re
     result = re.sub(r'\{% for game in games %\}.*?\{% endfor %\}', game_cards_html, template, flags=re.DOTALL)
     
     # Clean up other Jinja2 variables
-    result = result.replace('{{ games|length }}', str(len(games)))
+    result = result.replace('{{ games|length }}', str(len(GAMES)))
+    result = result.replace("{{ 's' if games|length != 1 }}", 's' if len(GAMES) != 1 else '')
+    
+    # Fix paths for static deployment (remove leading /)
+    result = result.replace('src="/static/', 'src="static/')
+    result = result.replace('href="/static/', 'href="static/')
 
-    # Write the static index.html
     with open('dist/index.html', 'w', encoding='utf-8') as f:
         f.write(result)
 

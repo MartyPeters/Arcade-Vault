@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jaspers Arcade Vault 🕹️</title>
+  <title>Arcade Vault 🕹️</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/hub.css">
+  <link rel="stylesheet" href="static/hub.css">
 </head>
 <body>
   <canvas id="bgCanvas"></canvas>
@@ -16,32 +16,66 @@
       <div class="vault-logo">
         <span class="logo-icon">🕹️</span>
         <div>
-          <h1>JASPERS ARCADE VAULT</h1>
-          <p class="tagline">JASPER'S GAME COLLECTION</p>
+          <h1>ARCADE VAULT</h1>
+          <p class="tagline">YOUR GAME COLLECTION</p>
         </div>
       </div>
     </header>
 
     <div class="games-grid">
       
-        <div class="game-card">
-            <div class="game-icon">🕹️</div>
-            <h3>Donkey Kong</h3>
-            <p>Experience Donkey Kong in the Arcade Vault.</p>
-            <a href="games/donkey-kong/index.html" class="play-btn">PLAY NOW</a>
+        <div class="game-wrapper">
+            <div class="card-glow-bg" style="--card-color: #ff6600;"></div>
+            <a class="game-card" href="play/donkey-kong/" style="--card-color: #ff6600; --card-glow: rgba(255,102,0,0.4);">
+                <div class="card-image-wrap">
+                    <img src="static/images/donkey_kong_poster.png" alt="Donkey Kong Poster" class="card-poster">
+                    <div class="card-overlay"></div>
+                    <div class="card-icon">🦍</div>
+                </div>
+                <div class="card-body">
+                    <div class="card-header">
+                        <h2>Donkey Kong</h2>
+                        <div class="platform-tag">WEB-OS 2077</div>
+                    </div>
+                    <p class="card-desc">The ultimate retro challenge. Dodge barrels, climb ladders, and save the day in this neon-infused classic.</p>
+                    <div class="card-footer">
+                        <span class="status-indicator active">ONLINE</span>
+                        <div class="play-btn">LAUNCH ▶</div>
+                    </div>
+                </div>
+            </a>
         </div>
         
-        <div class="game-card">
-            <div class="game-icon">🚀</div>
-            <h3>Space Invaders 2077</h3>
-            <p>Experience Space Invaders 2077 in the Arcade Vault.</p>
-            <a href="games/space-invaders-2077/index.html" class="play-btn">PLAY NOW</a>
+        <div class="game-wrapper">
+            <div class="card-glow-bg" style="--card-color: #00ffff;"></div>
+            <a class="game-card" href="play/space-invaders-2077/" style="--card-color: #00ffff; --card-glow: rgba(0,255,255,0.4);">
+                <div class="card-image-wrap">
+                    <img src="static/images/space_invaders_poster.png" alt="Space Invaders 2077 Poster" class="card-poster">
+                    <div class="card-overlay"></div>
+                    <div class="card-icon">🚀</div>
+                </div>
+                <div class="card-body">
+                    <div class="card-header">
+                        <h2>Space Invaders 2077</h2>
+                        <div class="platform-tag">WEB-OS 2077</div>
+                    </div>
+                    <p class="card-desc">A high-octane cyberpunk reimagining with procedural music, dual-weapon systems, and massive boss battles.</p>
+                    <div class="card-footer">
+                        <span class="status-indicator active">ONLINE</span>
+                        <div class="play-btn">LAUNCH ▶</div>
+                    </div>
+                </div>
+            </a>
         </div>
         
     </div>
 
     <footer>
-      <p>🎮 <span id="gameCount">2</span> game{{ 's' if games|length != 1 }} in the vault</p>
+      <div class="footer-stats">
+        <span class="stat-item"><span class="stat-icon">👾</span> <span id="gameCount">2</span> MODULES LOADED</span>
+        <span class="stat-divider"></span>
+        <span class="stat-item"><span class="stat-icon">⚡</span> SYSTEM STATUS: STABLE</span>
+      </div>
     </footer>
   </div>
 

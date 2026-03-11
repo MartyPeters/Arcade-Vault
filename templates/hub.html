@@ -24,20 +24,36 @@
 
     <div class="games-grid">
       {% for game in games %}
-      <a class="game-card" href="/play/{{ game.id }}/" style="--card-color: {{ game.color }}; --card-glow: {{ game.glow }};">
-        <div class="card-glow"></div>
-        <div class="card-icon">{{ game.icon }}</div>
-        <div class="card-info">
-          <h2>{{ game.title }}</h2>
-          <p>{{ game.description }}</p>
-        </div>
-        <div class="play-btn">PLAY ▶</div>
-      </a>
+      <div class="game-wrapper">
+        <div class="card-glow-bg" style="--card-color: {{ game.color }};"></div>
+        <a class="game-card" href="/play/{{ game.id }}/" style="--card-color: {{ game.color }}; --card-glow: {{ game.glow }};">
+          <div class="card-image-wrap">
+            <img src="{{ game.poster }}" alt="{{ game.title }} Poster" class="card-poster">
+            <div class="card-overlay"></div>
+            <div class="card-icon">{{ game.icon }}</div>
+          </div>
+          <div class="card-body">
+            <div class="card-header">
+              <h2>{{ game.title }}</h2>
+              <div class="platform-tag">WEB-OS 2077</div>
+            </div>
+            <p class="card-desc">{{ game.description }}</p>
+            <div class="card-footer">
+              <span class="status-indicator active">ONLINE</span>
+              <div class="play-btn">LAUNCH ▶</div>
+            </div>
+          </div>
+        </a>
+      </div>
       {% endfor %}
     </div>
 
     <footer>
-      <p>🎮 <span id="gameCount">{{ games|length }}</span> game{{ 's' if games|length != 1 }} in the vault</p>
+      <div class="footer-stats">
+        <span class="stat-item"><span class="stat-icon">👾</span> <span id="gameCount">{{ games|length }}</span> MODULES LOADED</span>
+        <span class="stat-divider"></span>
+        <span class="stat-item"><span class="stat-icon">⚡</span> SYSTEM STATUS: STABLE</span>
+      </div>
     </footer>
   </div>
 
