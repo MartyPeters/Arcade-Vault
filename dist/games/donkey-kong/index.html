@@ -11,7 +11,7 @@
       --neon-orange: #ff9500;
       --neon-cyan: #00ffff;
       --neon-purple: #bc00ff;
-      --bg-dark: #050508;
+      --bg-dark: #050510;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -38,76 +38,73 @@
       max-width: 100%;
       max-height: 100%;
       image-rendering: auto;
-      box-shadow: 0 0 50px rgba(0,0,0,0.5);
+      box-shadow: 0 0 100px rgba(0,0,0,0.8);
+      background: #000;
     }
     /* CRT & Glitch Filters */
     #crt-overlay {
       position: absolute;
       inset: 0;
-      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
-                  linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), 
+                  linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
       background-size: 100% 4px, 3px 100%;
       pointer-events: none;
       z-index: 10;
-      opacity: 0.15;
     }
     #glitch-overlay {
       position: absolute;
       inset: 0;
       pointer-events: none;
       z-index: 11;
-      mix-blend-mode: overlay;
+      mix-blend-mode: color-dodge;
       opacity: 0;
     }
     .glitching #glitch-overlay {
-      animation: glitch-anim 0.2s infinite;
-      opacity: 0.3;
+      animation: glitch-anim 0.15s infinite;
+      opacity: 0.4;
     }
     @keyframes glitch-anim {
-      0% { background: rgba(255,0,0,0.1); transform: translate(2px, 1px); }
-      50% { background: rgba(0,255,0,0.1); transform: translate(-2px, -1px); }
-      100% { background: rgba(0,0,255,0.1); transform: translate(1px, 2px); }
+      0% { background: rgba(255,0,255,0.1); transform: translate(4px, 2px) skewX(5deg); }
+      50% { background: rgba(0,255,255,0.1); transform: translate(-4px, -2px) skewX(-5deg); }
+      100% { background: rgba(0,0,255,0.1); transform: translate(2px, 4px) skewX(2deg); }
     }
 
-    /* Lobby exit button */
+    /* Modern UI */
     #lobby-btn {
       position: absolute;
-      top: 20px;
-      left: 20px;
+      top: 30px;
+      left: 30px;
       z-index: 100;
     }
     #lobby-btn a {
       display: inline-block;
       text-decoration: none;
       color: var(--neon-cyan);
-      border: 1px solid rgba(0, 255, 255, 0.3);
-      padding: 8px 16px;
+      border: 1px solid var(--neon-cyan);
+      padding: 10px 20px;
       font-family: 'Orbitron', sans-serif;
       font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      border-radius: 4px;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(10px);
-      text-shadow: 0 0 10px var(--neon-cyan);
+      font-weight: 900;
+      letter-spacing: 3px;
+      border-radius: 2px;
+      transition: all 0.4s;
+      background: rgba(0, 255, 255, 0.05);
+      backdrop-filter: blur(8px);
+      text-transform: uppercase;
     }
     #lobby-btn a:hover {
-      color: #fff;
-      border-color: var(--neon-cyan);
-      background: rgba(0, 255, 255, 0.2);
-      box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-      transform: translateY(-2px);
+      background: var(--neon-cyan);
+      color: #000;
+      box-shadow: 0 0 30px var(--neon-cyan);
     }
 
-    /* Touch controls (Cyberpunk Style) */
+    /* High-Tech Touch Controls */
     #touch-controls {
       display: none;
       position: absolute;
-      bottom: 40px;
+      bottom: 50px;
       width: 100%;
-      padding: 0 40px;
-      gap: 20px;
+      padding: 0 60px;
       justify-content: space-between;
       align-items: center;
       user-select: none;
@@ -116,61 +113,59 @@
     @media (pointer: coarse) {
       #touch-controls { display: flex; }
     }
-    .dpad { display: grid; grid-template-columns: repeat(3, 70px); grid-template-rows: repeat(2, 70px); gap: 8px; }
-    .btn {
-      width: 70px; height: 70px;
-      background: rgba(0, 255, 255, 0.05);
-      border: 2px solid rgba(0, 255, 255, 0.25);
-      border-radius: 12px;
+    .grid-ctrl { display: grid; grid-template-columns: repeat(3, 85px); grid-template-rows: repeat(2, 85px); gap: 12px; }
+    .ctrl-btn {
+      width: 85px; height: 85px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(0, 255, 255, 0.2);
+      border-radius: 4px;
       color: var(--neon-cyan);
-      font-size: 28px;
+      font-size: 32px;
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      backdrop-filter: blur(5px);
-      transition: all 0.1s;
+      backdrop-filter: blur(4px);
+      transition: 0.1s;
     }
-    .btn:active { 
-       background: rgba(0, 255, 255, 0.3);
+    .ctrl-btn:active { 
+       background: rgba(0, 255, 255, 0.25);
        border-color: var(--neon-cyan);
        box-shadow: 0 0 20px var(--neon-cyan);
     }
-    #btn-jump {
-      width: 100px; height: 100px;
+    #jump-trigger {
+      width: 120px; height: 120px;
       border-radius: 50%;
-      background: rgba(255, 149, 0, 0.1);
-      border: 2px solid rgba(255, 149, 0, 0.4);
+      background: rgba(255, 149, 0, 0.05);
+      border: 2px solid var(--neon-orange);
       color: var(--neon-orange);
       font-family: 'Orbitron', sans-serif;
-      font-size: 14px;
       font-weight: 900;
       text-shadow: 0 0 10px var(--neon-orange);
     }
-    #btn-jump:active {
-      background: rgba(255, 149, 0, 0.4);
-      border-color: var(--neon-orange);
-      box-shadow: 0 0 30px var(--neon-orange);
+    #jump-trigger:active {
+      background: var(--neon-orange);
+      color: #000;
+      box-shadow: 0 0 40px var(--neon-orange);
     }
   </style>
 </head>
-<body class="loading">
+<body>
 
 <div id="wrapper">
-  <div id="lobby-btn"><a href="../../index.html">RETURN TO HUB</a></div>
+  <div id="lobby-btn"><a href="../../index.html">EXIT LOBBY</a></div>
   <canvas id="gameCanvas"></canvas>
   <div id="crt-overlay"></div>
   <div id="glitch-overlay"></div>
 </div>
 
 <div id="touch-controls">
-  <div class="dpad">
+  <div class="grid-ctrl">
     <div></div>
-    <div class="btn" id="btn-up">▲</div>
+    <div class="ctrl-btn" id="btn-up">▲</div>
     <div></div>
-    <div class="btn" id="btn-left">◀</div>
-    <div class="btn" id="btn-down">▼</div>
-    <div class="btn" id="btn-right">▶</div>
+    <div class="ctrl-btn" id="btn-left">◀</div>
+    <div class="ctrl-btn" id="btn-down">▼</div>
+    <div class="ctrl-btn" id="btn-right">▶</div>
   </div>
-  <div class="btn" id="btn-jump">JUMP</div>
+  <div class="ctrl-btn" id="jump-trigger">JUMP</div>
 </div>
 
 <script>
@@ -180,12 +175,12 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 let W, H, scale;
-const BASE_W = 800, BASE_H = 800;
+const BASE_W = 1000, BASE_H = 1000;
 
 function resize() {
   W = window.innerWidth;
   H = window.innerHeight;
-  scale = Math.min(W / BASE_W, H / BASE_H) * 0.9;
+  scale = Math.min(W / BASE_W, H / BASE_H) * 0.95;
   canvas.width = BASE_W;
   canvas.height = BASE_H;
   canvas.style.width = (BASE_W * scale) + "px";
@@ -194,43 +189,30 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// ===================== ASSETS & CONSTANTS =====================
 const C = {
   orange: '#ff9500',
   cyan: '#00ffff',
   purple: '#bc00ff',
   red: '#ff2244',
   white: '#ffffff',
-  bg: '#050510'
+  bg: '#050512'
 };
 
-const HUD_H = 100;
-const GAME_H = BASE_H - HUD_H;
-
-// ===================== GAME STATE =====================
-let state = 'title'; // title | playing | dead | win | gameover
-let score = 0, lives = 3, level = 1, frameCount = 0;
-let hiScore = parseInt(localStorage.getItem('dk2077_hi') || '0');
-let glitchTimer = 0;
-
-// ===================== FX ENGINE =====================
-class ParticleEngine {
+// ===================== SYSTEMS =====================
+class FX {
   constructor() { this.p = []; }
-  spawn(x, y, color, count=10, spd=4) {
+  spawn(x, y, color, count=15, spd=6) {
     for(let i=0; i<count; i++) {
-      const a = Math.random()*Math.PI*2;
-      const s = Math.random()*spd;
       this.p.push({
-        x, y, vx:Math.cos(a)*s, vy:Math.sin(a)*s-1,
-        color, life: 1, dec: 0.01+Math.random()*0.02,
-        r: 1+Math.random()*3
+        x, y, vx:(Math.random()-0.5)*spd, vy:(Math.random()-0.5)*spd,
+        color, life: 1, dec: 0.01+Math.random()*0.02, r: 2+Math.random()*3
       });
     }
   }
   update() {
     for(let i=this.p.length-1; i>=0; i--) {
       const p = this.p[i];
-      p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life -= p.dec;
+      p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= p.dec;
       if(p.life <= 0) this.p.splice(i, 1);
     }
   }
@@ -245,27 +227,52 @@ class ParticleEngine {
     ctx.restore();
   }
 }
-const fx = new ParticleEngine();
+const particles = new FX();
 
-// ===================== GAME ENTITIES =====================
+// ===================== ENTITIES =====================
 class Platform {
-  constructor(x, y, w, slant=0, color=C.cyan) {
+  constructor(x, y, w, slant, color=C.cyan) {
     this.x = x; this.y = y; this.w = w; this.slant = slant; this.color = color;
   }
+  getY(x) {
+    return this.y + (x - (this.x + this.w / 2)) * this.slant;
+  }
   draw(ctx) {
-    const lY = this.y + (this.x - (this.x + this.w/2)) * this.slant;
-    const rY = this.y + (this.x + this.w - (this.x + this.w/2)) * this.slant;
-
-    // Hard-light glow
+    const lY = this.getY(this.x), rY = this.getY(this.x + this.w);
     ctx.save();
-    ctx.shadowBlur = 20; ctx.shadowColor = this.color;
-    ctx.strokeStyle = this.color; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(this.x, lY); ctx.lineTo(this.x+this.w, rY); ctx.stroke();
-    
-    // Sub-lines
-    ctx.globalAlpha = 0.3; ctx.lineWidth = 1;
-    for(let i=1; i<4; i++) {
+    ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+    ctx.strokeStyle = this.color; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(this.x, lY); ctx.lineTo(this.x + this.w, rY); ctx.stroke();
+    // Industrial Grid
+    ctx.globalAlpha = 0.2; ctx.lineWidth = 2;
+    for(let i=1; i<5; i++) {
        ctx.beginPath(); ctx.moveTo(this.x, lY+i*8); ctx.lineTo(this.x+this.w, rY+i*8); ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+class Ladder {
+  constructor(x, yTop, yBot) {
+    this.x = x; this.yTop = yTop; this.yBot = yBot;
+    this.color = C.white;
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+    ctx.strokeStyle = this.color; ctx.lineWidth = 4;
+    ctx.globalAlpha = 0.8; // Increased opacity
+    ctx.beginPath();
+    ctx.moveTo(this.x - 12, this.yTop); ctx.lineTo(this.x - 12, this.yBot);
+    ctx.moveTo(this.x + 12, this.yTop); ctx.lineTo(this.x + 12, this.yBot);
+    ctx.stroke();
+    // Inner Glow
+    ctx.globalAlpha = 0.2; ctx.lineWidth = 10;
+    ctx.stroke();
+    // Rungs
+    ctx.globalAlpha = 0.6; ctx.lineWidth = 2;
+    for(let ry = this.yTop + 10; ry < this.yBot; ry += 20) {
+      ctx.beginPath(); ctx.moveTo(this.x - 12, ry); ctx.lineTo(this.x + 12, ry); ctx.stroke();
     }
     ctx.restore();
   }
@@ -274,37 +281,42 @@ class Platform {
 class Barrel {
   constructor(x, y, vx) {
     this.x = x; this.y = y; this.vx = vx; this.vy = 0;
-    this.r = 15;
-    this.rot = 0;
-    this.active = true;
+    this.r = 18; this.rot = 0; this.active = true;
   }
   update(platforms) {
-    this.vy += 0.5;
-    this.x += this.vx; this.y += this.vy;
-    this.rot += this.vx * 0.1;
+    this.vy += 0.5; // Gravity
+    this.x += this.vx;
+    this.y += this.vy;
+    this.rot += this.vx * 0.15;
 
-    let onGround = false;
+    let grounded = false;
     for(const p of platforms) {
-      if(this.x + this.r > p.x && this.x - this.r < p.x + p.w) {
-        const py = p.y + (this.x - (p.x + p.w/2)) * p.slant;
-        if(this.y + this.r >= py && this.y + this.r <= py + 15 + this.vy) {
-          this.y = py - this.r;
-          this.vy = 0;
-          onGround = true;
-          this.vx = (this.vx > 0 ? 1 : -1) * (2 + level*0.5 + Math.abs(p.slant)*10);
-        }
+      if(this.x > p.x && this.x < p.x + p.w) {
+         const py = p.getY(this.x);
+         if(this.y + this.r >= py && this.y + this.r <= py + 20 + this.vy) {
+            this.y = py - this.r;
+            this.vy = 0;
+            grounded = true;
+            // Roll downhill physics
+            const rollAccel = p.slant * 5.0; // Acceleration based on slope
+            this.vx += rollAccel;
+            this.vx *= 0.98; // Friction
+         }
       }
     }
+    
+    if(!grounded && Math.abs(this.vy) < 0.1) {
+       // Just rolled off an edge
+    }
 
-    if(this.x < 0 || this.x > BASE_W) this.vx *= -1;
-    if(this.y > BASE_H) this.active = false;
+    if(this.x < -20 || this.x > BASE_W + 20 || this.y > BASE_H) this.active = false;
   }
   draw(ctx) {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rot);
-    ctx.shadowBlur = 15; ctx.shadowColor = C.red;
-    ctx.strokeStyle = C.red; ctx.lineWidth = 2;
+    ctx.shadowBlur = 20; ctx.shadowColor = C.red;
+    ctx.strokeStyle = C.red; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(0, 0, this.r, 0, Math.PI*2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-this.r, 0); ctx.lineTo(this.r, 0); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, -this.r); ctx.lineTo(0, this.r); ctx.stroke();
@@ -312,234 +324,253 @@ class Barrel {
   }
 }
 
-const mario = {
-  x: 50, y: 700, vx: 0, vy: 0, 
-  w: 30, h: 45, onGround: false,
-  facing: 1,
-  update(platforms, keys) {
-    const spd = 5;
-    if(keys.ArrowLeft || keys.KeyA) { this.vx = -spd; this.facing = -1; }
-    else if(keys.ArrowRight || keys.KeyD) { this.vx = spd; this.facing = 1; }
-    else this.vx = 0;
-
-    if((keys.Space || keys.ArrowUp) && this.onGround) {
-      this.vy = -12;
-      this.onGround = false;
+const runner = {
+  x: 100, y: 880, vx: 0, vy: 0, w: 40, h: 60,
+  onGround: false, onLadder: false, climbing: false,
+  facing: 1, anim: 0,
+  update(platforms, ladders, keys) {
+    const spd = 6, climbSpd = 4;
+    
+    // Ladder detection
+    let nearLadder = null;
+    for(const l of ladders) {
+      if(Math.abs(this.x + this.w/2 - l.x) < 30 && this.y + this.h > l.yTop && this.y < l.yBot) {
+        nearLadder = l; break;
+      }
     }
 
-    this.vy += 0.6;
-    this.x += this.vx; this.y += this.vy;
+    if(nearLadder && (keys.ArrowUp || keys.ArrowDown || this.climbing)) {
+      this.climbing = true;
+      this.vx = 0;
+      this.x = nearLadder.x - this.w / 2;
+      if(keys.ArrowUp) this.vy = -climbSpd;
+      else if(keys.ArrowDown) this.vy = climbSpd;
+      else this.vy = 0;
+      
+      if(this.y + this.h < nearLadder.yTop - 10 || this.y > nearLadder.yBot + 10) this.climbing = false;
+    } else {
+      this.climbing = false;
+      if(keys.ArrowLeft) { this.vx = -spd; this.facing = -1; }
+      else if(keys.ArrowRight) { this.vx = spd; this.facing = 1; }
+      else this.vx = 0;
 
-    this.onGround = false;
-    for(const p of platforms) {
-       if(this.x + this.w > p.x && this.x < p.x + p.w) {
-         const py = p.y + (this.x + this.w/2 - (p.x + p.w/2)) * p.slant;
-         if(this.vy >= 0 && this.y + this.h >= py && this.y + this.h <= py + 10 + this.vy) {
-           this.y = py - this.h;
-           this.vy = 0;
-           this.onGround = true;
-         }
-       }
+      if(keys.Space && this.onGround) {
+        this.vy = -14; this.onGround = false;
+      }
+      this.vy += 0.7; // Global Gravity
+    }
+
+    this.x += this.vx;
+    this.y += this.vy;
+
+    if(!this.climbing) {
+      this.onGround = false;
+      for(const p of platforms) {
+        if(this.x + this.w > p.x && this.x < p.x + p.w) {
+          const py = p.getY(this.x + this.w/2);
+          if(this.vy >= 0 && this.y + this.h >= py && this.y + this.h <= py + 15 + this.vy) {
+            this.y = py - this.h;
+            this.vy = 0;
+            this.onGround = true;
+          }
+        }
+      }
+    } else {
+        this.onGround = false;
     }
 
     this.x = Math.max(0, Math.min(this.x, BASE_W - this.w));
     if(this.y > BASE_H) triggerDeath();
+    
+    if(this.vx !== 0) this.anim += 0.15;
   },
   draw(ctx) {
     ctx.save();
-    ctx.translate(this.x + this.w/2, this.y + this.h/2);
+    ctx.translate(this.x + this.w / 2, this.y + this.h / 2);
     ctx.scale(this.facing, 1);
     
-    // Cyber-Runner Body
-    ctx.shadowBlur = 15; ctx.shadowColor = C.cyan;
+    // Runner Visuals (High-Fidelity Vector)
+    const bob = Math.sin(this.anim) * 3;
+    
+    // Legs
+    ctx.strokeStyle = C.cyan; ctx.lineWidth = 4;
+    ctx.beginPath(); 
+    ctx.moveTo(-10, 10); ctx.lineTo(-15, 30 + bob); // Front leg
+    ctx.moveTo(10, 10); ctx.lineTo(15, 30 - bob);  // Back leg
+    ctx.stroke();
+
+    // Body
+    ctx.shadowBlur = 20; ctx.shadowColor = C.cyan;
     ctx.fillStyle = C.cyan;
-    ctx.fillRect(-10, -20, 20, 30); // Torso
-    ctx.fillStyle = C.white;
-    ctx.fillRect(-8, -25, 16, 12); // Head/Helmet
+    ctx.fillRect(-15, -20 + bob, 30, 35);
+    
+    // Armor Detail
+    ctx.strokeStyle = C.white; ctx.lineWidth = 1;
+    ctx.strokeRect(-12, -18 + bob, 24, 10);
+    
+    // Head / Helm
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-12, -45 + bob, 24, 25);
     
     // Visor
     ctx.fillStyle = C.purple;
-    ctx.fillRect(2, -22, 10, 4);
-    
-    // Neon stripes
-    ctx.strokeStyle = C.white; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(-10, -5); ctx.lineTo(10, -5); ctx.stroke();
+    ctx.shadowBlur = 10; ctx.shadowColor = C.purple;
+    ctx.fillRect(0, -40 + bob, 15, 6);
     
     ctx.restore();
   }
 };
 
-// ===================== GAME LOGIC =====================
-let platforms = [];
-let barrels = [];
+// ===================== BOSS =====================
+const boss = {
+  x: 100, y: 150,
+  draw(ctx, frame) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    const p = Math.sin(frame * 0.1) * 0.1 + 1;
+    ctx.shadowBlur = 40 * p; ctx.shadowColor = C.orange;
+    
+    // Mecha-Body
+    ctx.fillStyle = '#1a1a24';
+    ctx.fillRect(-60, -50, 120, 100);
+    
+    // Core Reactor
+    ctx.fillStyle = C.orange;
+    ctx.beginPath(); ctx.arc(0, 0, 20 * p, 0, Math.PI*2); ctx.fill();
+    
+    // Heat Sinks
+    for(let i=0; i<4; i++) {
+        const h = Math.sin(frame*0.2 + i)*15;
+        ctx.fillStyle = i%2===0 ? C.orange : '#331100';
+        ctx.fillRect(-75, -40 + i*20, 15, 12);
+        ctx.fillRect(60, -40 + i*20, 15, 12);
+    }
+    
+    // Head
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(-35, -85, 70, 35);
+    ctx.fillStyle = C.orange;
+    const s = Math.sin(frame*0.05)*20;
+    ctx.fillRect(s-5, -80, 10, 5); // Scanning eye
+    
+    ctx.restore();
+  }
+};
+
+// ===================== CORE LOOP =====================
+let score = 0, lives = 3, level = 1, frameCount = 0;
+let platforms = [], ladders = [], barrels = [];
 let barrelTimer = 0;
+let state = 'playing';
 
 function initLevel() {
   platforms = [
-    new Platform(0, 750, 800, 0, C.purple),
-    new Platform(50, 630, 700, 0.05),
-    new Platform(50, 510, 700, -0.05),
-    new Platform(50, 390, 700, 0.05),
-    new Platform(50, 270, 700, 0),
-    new Platform(300, 150, 200, 0, C.orange) // Goal
+    new Platform(0, 950, 1000, 0, C.purple),      // Ground
+    new Platform(100, 800, 800, 0.04),            // Level 1
+    new Platform(100, 650, 800, -0.04),           // Level 2
+    new Platform(100, 500, 800, 0.04),            // Level 3
+    new Platform(100, 350, 800, -0.04),           // Level 4
+    new Platform(100, 200, 400, 0, C.orange),     // Boss Platform
+    new Platform(600, 150, 300, 0, C.purple)      // Goal
   ];
+  
+  ladders = [
+    new Ladder(800, 810, 950),
+    new Ladder(200, 660, 810),
+    new Ladder(800, 510, 660),
+    new Ladder(200, 360, 510),
+    new Ladder(450, 210, 360),
+    new Ladder(750, 160, 350)
+  ];
+
   barrels = [];
   barrelTimer = 100;
-  mario.x = 50; mario.y = 700; mario.vx = 0; mario.vy = 0;
+  runner.x = 100; runner.y = 880; runner.vx = 0; runner.vy = 0; runner.climbing = false;
   state = 'playing';
 }
 
 function triggerDeath() {
   if(state === 'dead') return;
-  state = 'dead';
-  lives--;
-  fx.spawn(mario.x + 15, mario.y + 22, C.red, 30, 8);
-  triggerGlitch(30);
+  state = 'dead'; lives--;
+  particles.spawn(runner.x + 20, runner.y + 30, C.red, 40, 10);
+  document.body.classList.add('glitching');
   setTimeout(() => {
+    document.body.classList.remove('glitching');
     if(lives <= 0) state = 'gameover';
     else initLevel();
   }, 1500);
 }
 
-function triggerGlitch(duration) {
-  glitchTimer = duration;
-  document.body.classList.add('glitching');
-}
-
-// ===================== INPUT =====================
 const keys = {};
-window.addEventListener('keydown', e => { keys[e.code] = true; });
+window.addEventListener('keydown', e => { keys[e.code] = true; if(e.code==='KeyR' && state==='gameover') { score=0; level=1; lives=3; initLevel(); } });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
 
-function bindTouch(id, code) {
+function bind(id, code) {
   const el = document.getElementById(id);
-  el.addEventListener('touchstart', e => { e.preventDefault(); keys[code] = true; }, {passive:false});
-  el.addEventListener('touchend', e => { e.preventDefault(); keys[code] = false; }, {passive:false});
+  el.addEventListener('touchstart', e => { e.preventDefault(); keys[code]=true; }, {passive:false});
+  el.addEventListener('touchend', e => { e.preventDefault(); keys[code]=false; }, {passive:false});
 }
-bindTouch('btn-left', 'ArrowLeft');
-bindTouch('btn-right', 'ArrowRight');
-bindTouch('btn-up', 'ArrowUp');
-bindTouch('btn-down', 'ArrowDown');
-bindTouch('btn-jump', 'Space');
+bind('btn-left', 'ArrowLeft'); bind('btn-right', 'ArrowRight');
+bind('btn-up', 'ArrowUp'); bind('btn-down', 'ArrowDown');
+bind('jump-trigger', 'Space');
 
-// ===================== MAIN LOOP =====================
 function loop() {
   ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, BASE_W, BASE_H);
-
-  // Background Ambience (Fog)
-  const grad = ctx.createRadialGradient(BASE_W/2, BASE_H/2, 0, BASE_W/2, BASE_H/2, BASE_W/2);
-  grad.addColorStop(0, 'rgba(0, 255, 255, 0.05)');
-  grad.addColorStop(1, 'transparent');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, BASE_W, BASE_H);
+  
+  // Cyber-Atmosphere
+  const g = ctx.createRadialGradient(BASE_W/2, BASE_H/2, 0, BASE_W/2, BASE_H/2, BASE_W);
+  g.addColorStop(0, 'rgba(0, 255, 255, 0.05)'); g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g; ctx.fillRect(0,0,BASE_W, BASE_H);
 
   if(state === 'playing') {
     frameCount++;
-    mario.update(platforms, keys);
+    runner.update(platforms, ladders, keys);
     
     barrelTimer--;
     if(barrelTimer <= 0) {
-      barrels.push(new Barrel(70, 250, 2 + level*0.5));
-      barrelTimer = Math.max(40, 120 - level * 10);
+      barrels.push(new Barrel(120, 180, 2 + level*0.5));
+      barrelTimer = Math.max(30, 110 - level * 10);
     }
 
     for(let i=barrels.length-1; i>=0; i--) {
       const b = barrels[i];
       b.update(platforms);
-      if(!b.active) barrels.splice(i, 1);
-      
-      // Collision
-      const dx = b.x - (mario.x + 15);
-      const dy = b.y - (mario.y + 22);
-      if(Math.sqrt(dx*dx + dy*dy) < b.r + 15) {
-        triggerDeath();
+      if(!b.active) { barrels.splice(i, 1); score += 50; }
+      else {
+        // Collision
+        const dx = b.x - (runner.x + 20), dy = b.y - (runner.y + 30);
+        if(Math.sqrt(dx*dx + dy*dy) < 30) triggerDeath();
       }
     }
 
-    // Win check
-    if(mario.y < 160 && mario.x > 300 && mario.x < 500) {
-      state = 'win';
-      score += 1000 * level;
-      level++;
+    if(runner.y < 150 && runner.x > 600) {
+      state = 'win'; level++; score += 2000;
       setTimeout(initLevel, 2000);
     }
   }
 
-  // Draw entities
   platforms.forEach(p => p.draw(ctx));
+  ladders.forEach(l => l.draw(ctx));
+  boss.draw(ctx, frameCount);
   barrels.forEach(b => b.draw(ctx));
-  mario.draw(ctx);
-  fx.update();
-  fx.draw(ctx);
-
-  // Cyber Kong (The Boss)
-  ctx.save();
-  ctx.translate(90, 220); // Center of boss area
-  
-  const pulse = Math.sin(frameCount * 0.1) * 0.2 + 1;
-  ctx.shadowBlur = 30 * pulse; ctx.shadowColor = C.orange;
-  
-  // Body - Heavy Industrial Look
-  ctx.fillStyle = '#1a1a20';
-  ctx.fillRect(-45, -40, 90, 80);
-  
-  // Glowing Circuitry
-  ctx.strokeStyle = C.orange; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(-35, -30); ctx.lineTo(-10, -10); ctx.lineTo(10, -30); ctx.stroke();
-  
-  // Heat Sinks (Animated)
-  for(let i=0; i<4; i++) {
-    const hPulse = Math.sin(frameCount * 0.2 + i) * 10;
-    ctx.fillStyle = i%2 === 0 ? C.orange : '#442200';
-    ctx.fillRect(-55, -30 + i*15, 10, 8); // Left
-    ctx.fillRect(45, -30 + i*15, 10, 8); // Right
-  }
-  
-  // Bionic Arms
-  ctx.fillStyle = '#333';
-  ctx.fillRect(-65, 0, 20, 40);
-  ctx.fillRect(45, 0, 20, 40);
-  
-  // Head
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-25, -65, 50, 30);
-  
-  // Scanner Eyes
-  ctx.fillStyle = C.orange;
-  const scanX = Math.sin(frameCount * 0.05) * 15;
-  ctx.fillRect(-20 + scanX, -60, 10, 5); // Scanning left eye
-  ctx.fillRect(10 + scanX, -60, 10, 5); // Scanning right eye
-  
-  ctx.restore();
+  runner.draw(ctx);
+  particles.update(); particles.draw(ctx);
 
   // HUD
-  ctx.fillStyle = 'rgba(0,0,0,0.8)';
-  ctx.fillRect(0, 0, BASE_W, HUD_H);
-  ctx.fillStyle = C.cyan;
-  ctx.font = 'bold 24px Orbitron';
-  ctx.fillText(`SCORE: ${String(score).padStart(6, '0')}`, 30, 45);
-  ctx.fillText(`LEVEL: ${level}`, 30, 80);
+  ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0,0,BASE_W, 100);
+  ctx.fillStyle = C.cyan; ctx.font = 'bold 36px Orbitron';
+  ctx.fillText(`SCORE: ${String(score).padStart(6, '0')}`, 40, 60);
   ctx.textAlign = 'right';
-  ctx.fillText(`LIVES: ${'⚡'.repeat(lives)}`, BASE_W - 30, 45);
-  ctx.fillText(`BEST: ${hiScore}`, BASE_W - 30, 80);
+  ctx.fillText(`LIVES: ${'⚡'.repeat(lives)} | BEST: ${localStorage.getItem('dk2077_hi') || 0}`, BASE_W - 40, 60);
 
-  // Overlays
   if(state === 'gameover') {
-    ctx.fillStyle = 'rgba(0,0,0,0.9)';
-    ctx.fillRect(0,0,BASE_W, BASE_H);
-    ctx.fillStyle = C.red;
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 60px Orbitron';
-    ctx.fillText('CONNECTION LOST', BASE_W/2, BASE_H/2);
-    ctx.font = '20px Share Tech Mono';
-    ctx.fillStyle = C.white;
-    ctx.fillText('PRESS R TO RELOAD SYSTEM', BASE_W/2, BASE_H/2 + 50);
-  }
-
-  if(glitchTimer > 0) {
-    glitchTimer--;
-    if(glitchTimer <= 0) document.body.classList.remove('glitching');
+    ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(0,0,BASE_W, BASE_H);
+    ctx.fillStyle = C.red; ctx.textAlign = 'center'; ctx.font = '90px Orbitron';
+    ctx.fillText('NETWORK DOWN', BASE_W/2, BASE_H/2);
+    ctx.font = '30px Share Tech Mono'; ctx.fillStyle = '#fff';
+    ctx.fillText('RELOAD SYSTEM (R)', BASE_W/2, BASE_H/2 + 80);
+    if(score > (localStorage.getItem('dk2077_hi')||0)) localStorage.setItem('dk2077_hi', score);
   }
 
   requestAnimationFrame(loop);
@@ -547,13 +578,6 @@ function loop() {
 
 initLevel();
 requestAnimationFrame(loop);
-
-window.addEventListener('keydown', e => {
-  if(e.code === 'KeyR' && state === 'gameover') {
-    score = 0; level = 1; lives = 3;
-    initLevel();
-  }
-});
 
 </script>
 </body>
