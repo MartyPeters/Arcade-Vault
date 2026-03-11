@@ -78,10 +78,36 @@
       margin-left: 16px;
     }
     #btn-jump:active { background: rgba(255,69,0,0.45); }
+    /* Lobby exit button */
+    #lobby-btn {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 100;
+    }
+    #lobby-btn a {
+      display: inline-block;
+      text-decoration: none;
+      color: rgba(255, 215, 0, 0.4);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      padding: 6px 12px;
+      font-size: 10px;
+      letter-spacing: 2px;
+      border-radius: 4px;
+      transition: all 0.25s;
+      background: rgba(0,0,0,0.3);
+    }
+    #lobby-btn a:hover {
+      color: #FFD700;
+      border-color: #FFD700;
+      background: rgba(255,215,0,0.1);
+      box-shadow: 0 0 15px rgba(255,215,0,0.3);
+    }
   </style>
 </head>
 <body>
 <div id="wrapper">
+  <div id="lobby-btn"><a href="../../index.html">EXIT LOBBY</a></div>
   <canvas id="gameCanvas" width="560" height="560"></canvas>
 </div>
 <div id="touch-controls">

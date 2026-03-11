@@ -22,7 +22,10 @@
       <div class="ns-form">
         <label for="playerName">PILOT CALLSIGN</label>
         <input type="text" id="playerName" maxlength="12" placeholder="ENTER NAME" autocomplete="off" spellcheck="false">
-        <button id="startBtn">LAUNCH ▶</button>
+        <div class="btn-group">
+          <button id="startBtn">LAUNCH ▶</button>
+          <a href="../../index.html" class="lobby-link">VAULT LOBBY</a>
+        </div>
         <p class="ns-hint">ARROWS / WASD to move &nbsp;·&nbsp; SPACE to fire &nbsp;·&nbsp; Q to switch weapon</p>
       </div>
     </div>
@@ -30,6 +33,7 @@
     <!-- Transparent play button shown over the canvas menu/game-over screens -->
     <div id="playOverlay" class="hidden">
       <button id="playBtn">▶ LAUNCH</button>
+      <a href="../../index.html" id="lobbyBtn">LOBBY</a>
     </div>
   </div>
 

@@ -155,6 +155,9 @@ body {
   transform: translateX(-50%);
   z-index: 5;
   pointer-events: all;
+  display: flex;
+  gap: 16px;
+  align-items: center;
 }
 
 #playBtn {
@@ -171,10 +174,57 @@ body {
   transition: all 0.2s;
   text-shadow: 0 0 12px #00ffff;
   box-shadow: 0 0 16px rgba(0,255,255,0.2);
+  white-space: nowrap;
 }
 
 #playBtn:hover {
   background: rgba(0,255,255,0.15);
   border-color: #00ffff;
   box-shadow: 0 0 30px rgba(0,255,255,0.5);
+}
+
+#lobbyBtn {
+  display: inline-block;
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid rgba(168,85,247,0.6);
+  border-radius: 8px;
+  color: rgba(168,85,247,0.8);
+  cursor: pointer;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 16px 24px;
+  transition: all 0.2s;
+  text-shadow: 0 0 10px #a855f7;
+  white-space: nowrap;
+}
+
+#lobbyBtn:hover {
+  background: rgba(168,85,247,0.15);
+  border-color: #a855f7;
+  box-shadow: 0 0 20px rgba(168,85,247,0.4);
+  color: #fff;
+}
+
+.btn-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.lobby-link {
+  text-decoration: none;
+  color: rgba(168,85,247,0.7);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px;
+  letter-spacing: 2px;
+  transition: color 0.2s, text-shadow 0.2s;
+}
+
+.lobby-link:hover {
+  color: #a855f7;
+  text-shadow: 0 0 10px #a855f7;
 }
